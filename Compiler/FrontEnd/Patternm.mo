@@ -41,7 +41,6 @@ encapsulated package Patternm
 import Absyn;
 import Ceval;
 import ClassInf;
-import ConnectionGraph;
 import DAE;
 import FCore;
 import HashTableStringToPath;
@@ -59,7 +58,6 @@ import Algorithm;
 import AvlSetString;
 import BaseHashTable;
 import ComponentReference;
-import Connect;
 import DAEUtil;
 import ElementSource;
 import Expression;
@@ -2537,11 +2535,11 @@ algorithm
         dummyFunc = ClassInf.FUNCTION(Absyn.IDENT("dummieFunc"), false);
         (cache,env2,_) = InstUtil.addComponentsToEnv(cache, env2,
           InnerOuter.emptyInstHierarchy, DAE.NOMOD(), Prefix.NOPRE(),
-          dummyFunc, ld_mod, impl);
-        (cache,env2,_,_,dae1,_,_,_,_,_) = Inst.instElementList(
+          dummyFunc, ld_mod, impl, info);
+        (cache,env2,_,_,dae1,_,_,_) = Inst.instElementList(
           cache,env2, InnerOuter.emptyInstHierarchy, UnitAbsyn.noStore,
           DAE.NOMOD(), Prefix.NOPRE(), dummyFunc, ld_mod, {},
-          impl, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY, Connect.emptySet, true);
+          impl, InstTypes.INNER_CALL(), true);
 
         names = List.map(ld2, SCode.elementName);
         declsTree = AvlSetString.addList(AvlSetString.new(), names);

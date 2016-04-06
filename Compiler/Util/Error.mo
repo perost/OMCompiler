@@ -702,6 +702,8 @@ public constant Message SCANNER_ERROR_LIMIT = MESSAGE(287, SYNTAX(), ERROR(),
   Util.gettext("Additional syntax errors were suppressed."));
 public constant Message INVALID_TIME_SCOPE = MESSAGE(288, TRANSLATION(), ERROR(),
   Util.gettext("Built-in variable 'time' may only be used in a model or block."));
+public constant Message UNBALANCED_STREAM_CONNECTOR = MESSAGE(289, TRANSLATION(), ERROR(),
+  Util.gettext("A stream connector must have exactly one flow variable, but %s has %s."));
 public constant Message UNBOUND_PARAMETER_WITH_START_VALUE_WARNING = MESSAGE(499, TRANSLATION(), WARNING(),
   Util.gettext("Parameter %s has no value, and is fixed during initialization (fixed=true), using available start value (start=%s) as default value."));
 public constant Message UNBOUND_PARAMETER_WARNING = MESSAGE(500, TRANSLATION(), WARNING(),

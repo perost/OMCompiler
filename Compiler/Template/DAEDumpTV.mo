@@ -327,6 +327,14 @@ package DAE
       ElementSource source "the origin of the component/equation/algorithm";
     end INITIAL_ARRAY_EQUATION;
 
+    record CONNECT_EQUATION
+      Element lhsElement;
+      Connect.Face lhsFace;
+      Element rhsElement;
+      Connect.Face rhsFace;
+      ElementSource source "the origin of the component/equation/algorithm";
+    end CONNECT_EQUATION;
+
     record COMPLEX_EQUATION "an equation of complex type, e.g. record = func(..)"
       Exp lhs;
       Exp rhs;

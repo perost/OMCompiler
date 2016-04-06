@@ -53,6 +53,7 @@ protected import Ceval;
 protected import ClassInf;
 protected import ComponentReference;
 protected import Config;
+protected import DAEUtil;
 protected import Debug;
 protected import ElementSource;
 protected import Error;

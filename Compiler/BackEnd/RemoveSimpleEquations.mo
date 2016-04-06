@@ -59,6 +59,7 @@ protected import BaseHashSet;
 protected import BaseHashTable;
 protected import Ceval;
 protected import ComponentReference;
+protected import DAEUtil;
 protected import SimCodeUtil;
 protected import Debug;
 protected import ElementSource;

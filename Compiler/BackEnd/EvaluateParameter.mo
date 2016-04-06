@@ -74,6 +74,7 @@ protected import BaseHashTable;
 protected import BaseHashSet;
 protected import Ceval;
 protected import ComponentReference;
+protected import DAEUtil;
 protected import ElementSource;
 protected import Error;
 protected import EvaluateFunctions;

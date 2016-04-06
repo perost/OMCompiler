@@ -48,7 +48,6 @@ encapsulated package Interactive
 
 //public imports
 public import Absyn;
-public import ConnectionGraph;
 public import DAE;
 public import FCore;
 public import Global;
@@ -65,7 +64,6 @@ protected import CevalScript;
 protected import ClassInf;
 protected import ClockIndexes;
 protected import Config;
-protected import Connect;
 protected import Constants;
 protected import DAEUtil;
 protected import Debug;
@@ -12962,7 +12960,7 @@ algorithm
           c := SCode.classSetPartial(c, SCode.NOT_PARTIAL());
           (_, _, _, _, dae) := Inst.instClass(cache, env2, InnerOuter.emptyInstHierarchy,
             UnitAbsyn.noStore, dmod, Prefix.NOPRE(), c, {}, false,
-            InstTypes.TOP_CALL(), ConnectionGraph.EMPTY, Connect.emptySet);
+            InstTypes.TOP_CALL());
 
           str := DAEUtil.getVariableBindingsStr(DAEUtil.daeElements(dae));
         then
@@ -12981,7 +12979,7 @@ algorithm
           c := SCode.classSetPartial(c, SCode.NOT_PARTIAL());
           (_, _, _, _, dae) := Inst.instClass(cache, env, InnerOuter.emptyInstHierarchy,
             UnitAbsyn.noStore, DAE.NOMOD(), Prefix.NOPRE(), c, {}, false,
-            InstTypes.TOP_CALL(), ConnectionGraph.EMPTY, Connect.emptySet);
+            InstTypes.TOP_CALL());
 
           str := DAEUtil.getVariableBindingsStr(DAEUtil.daeElements(dae));
         then
@@ -13329,8 +13327,7 @@ algorithm
         placement_cls := SCodeUtil.translateClass(getClassInProgram(ann_name, graphic_prog));
         (cache, _, _, _, dae) :=
           Inst.instClass(cache, env, InnerOuter.emptyInstHierarchy, UnitAbsyn.noStore,
-            dmod, Prefix.NOPRE(), placement_cls, {}, false, InstTypes.TOP_CALL(),
-            ConnectionGraph.EMPTY, Connect.emptySet);
+            dmod, Prefix.NOPRE(), placement_cls, {}, false, InstTypes.TOP_CALL());
         outString := DAEUtil.getVariableBindingsStr(DAEUtil.daeElements(dae));
 
         // Icon and Diagram contain graphic primitives which must be handled
@@ -18047,8 +18044,7 @@ algorithm
   else
     (_, outEnv) := Inst.instClassIn(cache, env, InnerOuter.emptyInstHierarchy,
       UnitAbsyn.noStore, DAE.NOMOD(), Prefix.NOPRE(), ci_state, cl,
-      SCode.PUBLIC(), {}, false, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY,
-      Connect.emptySet, NONE());
+      SCode.PUBLIC(), {}, false, InstTypes.INNER_CALL(), NONE());
   end try;
 end getClassEnvNoElaboration;
 

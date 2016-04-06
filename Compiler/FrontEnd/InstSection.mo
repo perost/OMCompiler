@@ -41,7 +41,6 @@ encapsulated package InstSection
 public import Absyn;
 public import ClassInf;
 public import Connect;
-public import ConnectionGraph;
 public import DAE;
 public import FCore;
 public import FGraph;
@@ -68,6 +67,7 @@ protected import Inst;
 protected import InstDAE;
 protected import InstFunction;
 protected import InstTypes;
+protected import InstUtil;
 protected import NFInstUtil;
 protected import List;
 protected import Lookup;
@@ -97,26 +97,22 @@ public function instEquation
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.Equation inEquation;
   input Boolean inImpl;
   input Boolean unrollForLoops "Unused, to comply with Inst.instList interface.";
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
 protected
   SCode.EEquation eq;
 algorithm
   SCode.EQUATION(eEquation = eq) := inEquation;
-  (outCache, outEnv, outIH, outDae, outSets, outState, outGraph) :=
-    instEquationCommon(inCache, inEnv, inIH, inPrefix, inSets, inState, eq,
-      SCode.NON_INITIAL(), inImpl, inGraph);
+  (outCache, outEnv, outIH, outDae, outState) :=
+    instEquationCommon(inCache, inEnv, inIH, inPrefix, inState, eq,
+      SCode.NON_INITIAL(), inImpl);
 end instEquation;
 
 protected function instEEquation
@@ -125,23 +121,19 @@ protected function instEEquation
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.EEquation inEEquation;
   input Boolean inImpl;
   input Boolean unrollForLoops "Unused, to comply with Inst.instList interface.";
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
-  (outCache, outEnv, outIH, outDae, outSets, outState, outGraph) :=
-    instEquationCommon(inCache, inEnv, inIH, inPrefix, inSets, inState, inEEquation,
-      SCode.NON_INITIAL(), inImpl, inGraph);
+  (outCache, outEnv, outIH, outDae, outState) :=
+    instEquationCommon(inCache, inEnv, inIH, inPrefix, inState, inEEquation,
+      SCode.NON_INITIAL(), inImpl);
 end instEEquation;
 
 public function instInitialEquation
@@ -152,26 +144,22 @@ public function instInitialEquation
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.Equation inEquation;
   input Boolean inImpl;
   input Boolean unrollForLoops "Unused, to comply with Inst.instList interface.";
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
 protected
   SCode.EEquation eq;
 algorithm
   SCode.EQUATION(eEquation = eq) := inEquation;
-  (outCache, outEnv, outIH, outDae, outSets, outState, outGraph) :=
-    instEquationCommon(inCache, inEnv, inIH, inPrefix, inSets, inState, eq,
-      SCode.INITIAL(), inImpl, inGraph);
+  (outCache, outEnv, outIH, outDae, outState) :=
+    instEquationCommon(inCache, inEnv, inIH, inPrefix, inState, eq,
+      SCode.INITIAL(), inImpl);
 end instInitialEquation;
 
 protected function instEInitialEquation
@@ -180,23 +168,19 @@ protected function instEInitialEquation
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.EEquation inEEquation;
   input Boolean inImpl;
   input Boolean unrollForLoops "Unused, to comply with Inst.instList interface.";
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
-  (outCache, outEnv, outIH, outDae, outSets, outState, outGraph) :=
-    instEquationCommon(inCache, inEnv, inIH, inPrefix, inSets, inState, inEEquation,
-      SCode.INITIAL(), inImpl, inGraph);
+  (outCache, outEnv, outIH, outDae, outState) :=
+    instEquationCommon(inCache, inEnv, inIH, inPrefix, inState, inEEquation,
+      SCode.INITIAL(), inImpl);
 end instEInitialEquation;
 
 protected function instEquationCommon
@@ -210,19 +194,15 @@ protected function instEquationCommon
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.EEquation inEEquation;
   input SCode.Initial inInitial;
   input Boolean inImpl;
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
 protected
   Integer errorCount = Error.getNumErrorMessages();
 algorithm
@@ -234,9 +214,9 @@ algorithm
     case ()
       algorithm
         state := ClassInf.trans(inState,ClassInf.FOUND_EQUATION());
-        (outCache, outEnv, outIH, outDae, outSets, outState, outGraph) :=
-          instEquationCommonWork(inCache, inEnv, inIH, inPrefix, inSets, state,
-            inEEquation, inInitial, inImpl, inGraph, DAE.FLATTEN(inEEquation,NONE()));
+        (outCache, outEnv, outIH, outDae, outState) :=
+          instEquationCommonWork(inCache, inEnv, inIH, inPrefix, state,
+            inEEquation, inInitial, inImpl, DAE.FLATTEN(inEEquation, NONE()));
         outDae := DAEUtil.traverseDAE(outDae, DAE.AvlTreePathFunction.Tree.EMPTY(),
           Expression.traverseSubexpressionsHelper,
           (ExpressionSimplify.simplifyWork, ExpressionSimplifyTypes.optionSimplifyOnly));
@@ -275,20 +255,16 @@ protected function instEquationCommonWork
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.EEquation inEEquation;
   input SCode.Initial inInitial;
   input Boolean inImpl;
-  input ConnectionGraph.ConnectionGraph inGraph;
   input DAE.SymbolicOperation inFlattenOp;
   output FCore.Cache outCache = inCache;
   output FCore.Graph outEnv = inEnv;
   output InnerOuter.InstHierarchy outIH = inIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets = inSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph = inGraph;
 algorithm
   (outDae, outState) := matchcontinue inEEquation
     local
@@ -320,9 +296,10 @@ algorithm
     // Connect equations.
     case SCode.EQ_CONNECT(crefLeft = lhs_acr, crefRight = rhs_acr, info = info)
       algorithm
-        (outCache, outEnv, outIH, outSets, outDae, outGraph) :=
-          instConnect(outCache, outEnv, outIH, outSets, inPrefix, lhs_acr,
-              rhs_acr, inImpl, inGraph, info);
+        source := makeEqSource(info, inEnv, inPrefix, inFlattenOp);
+        (outCache, outEnv, outIH, outDae) :=
+          instConnect(outCache, outEnv, outIH, inPrefix, lhs_acr,
+            rhs_acr, inImpl, info, source);
         outState := instEquationCommonCiTrans(inState, inInitial);
       then
         (outDae, outState);
@@ -398,10 +375,10 @@ algorithm
           end for;
 
           // A branch was selected, instantiate it.
-          (outCache, outEnv, outIH, outDae, outSets, outState, outGraph) :=
-            Inst.instList(outCache, inEnv, inIH, inPrefix, inSets, inState,
+          (outCache, outEnv, outIH, outDae, outState) :=
+            Inst.instList(outCache, inEnv, inIH, inPrefix, inState,
               if SCode.isInitial(inInitial) then instEInitialEquation else instEEquation,
-              eql, inImpl, alwaysUnroll, inGraph);
+              eql, inImpl, alwaysUnroll);
         else
           (outCache, expl) := PrefixUtil.prefixExpList(outCache, inEnv, inIH, expl, inPrefix);
 
@@ -434,19 +411,19 @@ algorithm
           Error.addSourceMessageAndFail(Error.INITIAL_WHEN, {}, info);
         end if;
 
-        (outCache, outEnv, outIH, cond_exp, el, outGraph) :=
-          instWhenEqBranch(inCache, inEnv, inIH, inPrefix, inSets, inState,
+        (outCache, outEnv, outIH, cond_exp, el) :=
+          instWhenEqBranch(inCache, inEnv, inIH, inPrefix, inState,
             (inEEquation.condition, inEEquation.eEquationLst), inImpl,
-            alwaysUnroll, inGraph, info);
+            alwaysUnroll, info);
 
         // Set the source of this element.
         source := makeEqSource(info, inEnv, inPrefix, inFlattenOp);
 
         else_when := NONE();
         for branch in listReverse(inEEquation.elseBranches) loop
-          (outCache, outEnv, outIH, exp, el2, outGraph) :=
-            instWhenEqBranch(outCache, outEnv, outIH, inPrefix, inSets, inState,
-              branch, inImpl, alwaysUnroll, outGraph, info);
+          (outCache, outEnv, outIH, exp, el2) :=
+            instWhenEqBranch(outCache, outEnv, outIH, inPrefix, inState,
+              branch, inImpl, alwaysUnroll, info);
           else_when := SOME(DAE.WHEN_EQUATION(exp, el2, else_when, source));
         end for;
 
@@ -494,9 +471,9 @@ algorithm
           end if;
         end try;
 
-        (outCache, outDae, outSets, outGraph) := unroll(outCache, env, inIH,
-           inPrefix, inSets, inState, inEEquation.index, ty, val,
-           inEEquation.eEquationLst, inInitial, inImpl, inGraph);
+        (outCache, outDae) := unroll(outCache, env, inIH,
+           inPrefix, inState, inEEquation.index, ty, val,
+           inEEquation.eEquationLst, inInitial, inImpl);
         outState := instEquationCommonCiTrans(inState, inInitial);
       then
         (outDae, outState);
@@ -557,23 +534,15 @@ algorithm
 
     case SCode.EQ_NORETCALL(info = info)
       algorithm
-        if isConnectionsOperator(inEEquation.exp) then
-          // Handle Connections.* operators.
-          (outCache, outEnv, outIH, outDae, outSets, outState, outGraph) :=
-            handleConnectionsOperators(inCache, inEnv, inIH, inPrefix, inSets,
-              inState, inEEquation, inInitial, inImpl, inGraph, inFlattenOp);
-        else
-          // Handle normal no return calls.
-          (outCache, exp) := Static.elabExp(inCache, inEnv, inEEquation.exp,
-            inImpl, NONE(), false, inPrefix, info);
-          // This is probably an external function call that the user wants to
-          // evaluate at runtime, so don't ceval it.
-          (outCache, exp) := PrefixUtil.prefixExp(outCache, inEnv, inIH, exp, inPrefix);
+        (outCache, exp) := Static.elabExp(inCache, inEnv, inEEquation.exp,
+          inImpl, NONE(), false, inPrefix, info);
+        // This is probably an external function call that the user wants to
+        // evaluate at runtime, so don't ceval it.
+        (outCache, exp) := PrefixUtil.prefixExp(outCache, inEnv, inIH, exp, inPrefix);
 
-          source := makeEqSource(info, inEnv, inPrefix, inFlattenOp);
-          outDae := instEquationNoRetCallVectorization(exp, inInitial, source);
-          outState := inState;
-        end if;
+        source := makeEqSource(info, inEnv, inPrefix, inFlattenOp);
+        outDae := instEquationNoRetCallVectorization(exp, inInitial, source);
+        outState := inState;
       then
         (outDae, outState);
 
@@ -695,256 +664,6 @@ algorithm
   (outCache, outArg) :=
     PrefixUtil.prefixExp(outCache, inEnv, inIH, outArg, inPrefix);
 end instOperatorArg;
-
-protected function isConnectionsOperator
-  input Absyn.Exp inExp;
-  output Boolean yes;
-algorithm
-  yes := match(inExp)
-    local
-      Absyn.Ident id;
-
-    case (Absyn.CALL(function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT(id, {}))))
-      then listMember(id, {"root", "potentialRoot", "branch", "uniqueRoot"});
-
-    else false;
-  end match;
-end isConnectionsOperator;
-
-protected function handleConnectionsOperators
-  "This function handles Connections.* no return operators"
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InnerOuter.InstHierarchy inIH;
-  input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
-  input ClassInf.State inState;
-  input SCode.EEquation inEEquation;
-  input SCode.Initial inInitial;
-  input Boolean inImpl;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input DAE.SymbolicOperation flattenOp;
-  output FCore.Cache outCache;
-  output FCore.Graph outEnv;
-  output InnerOuter.InstHierarchy outIH;
-  output DAE.DAElist outDae;
-  output Connect.Sets outSets;
-  output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
-algorithm
-  (outCache,outEnv,outIH,outDae,outSets,outState,outGraph):=
-  matchcontinue (inCache,inEnv,inIH,inPrefix,inSets,inState,inEEquation,inInitial,inImpl,inGraph,flattenOp)
-    local
-      list<DAE.Properties> props;
-      Connect.Sets csets_1,csets;
-      DAE.DAElist dae;
-      ClassInf.State ci_state_1,ci_state,ci_state_2;
-      FCore.Graph env,env_1,env_2;
-      Prefix.Prefix pre;
-      Absyn.ComponentRef c1,c2,cr,cr1,cr2;
-      SCode.Initial initial_;
-      Boolean impl, b1, b2;
-      String i,s;
-      Absyn.Exp e2,e1,e,ee,e3,msg;
-      list<Absyn.Exp> conditions;
-      DAE.Exp e1_1,e2_1,e1_2,e2_2,e_1,e_2,e3_1,e3_2,msg_1;
-      DAE.Properties prop1,prop2,prop3;
-      list<SCode.EEquation> b,fb,el,eel;
-      list<list<SCode.EEquation>> tb;
-      list<tuple<Absyn.Exp, list<SCode.EEquation>>> eex;
-      DAE.Type id_t;
-      Values.Value v;
-      DAE.ComponentRef cr_1;
-      SCode.EEquation eqn,eq;
-      FCore.Cache cache;
-      list<Values.Value> valList;
-      list<DAE.Exp> expl1;
-      list<Boolean> blist;
-      ConnectionGraph.ConnectionGraph graph;
-      InstanceHierarchy ih;
-      list<tuple<Absyn.ComponentRef, Integer>> lst;
-      tuple<Absyn.ComponentRef, Integer> tpl;
-      DAE.ElementSource source "the origin of the element";
-      list<DAE.Element> daeElts1,daeElts2;
-      list<list<DAE.Element>> daeLLst;
-      DAE.Const cnst;
-      SourceInfo info;
-      DAE.Element daeElt2;
-      list<DAE.ComponentRef> lhsCrefs,lhsCrefsRec;
-      Integer i1,ipriority;
-      list<DAE.Element> daeElts,daeElts3;
-      DAE.ComponentRef cr_,cr1_,cr2_;
-      DAE.Type t;
-      DAE.Properties tprop1,tprop2;
-      Real priority;
-      DAE.Exp exp;
-      Option<Values.Value> containsEmpty;
-      SCode.Comment comment;
-      Absyn.FunctionArgs functionArgs;
-
-    // Connections.root(cr) - zero sized cref
-    case (cache,env,ih,pre,csets,ci_state,SCode.EQ_NORETCALL(info=info,exp=Absyn.CALL(
-              function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT("root", {})),
-              functionArgs = Absyn.FUNCTIONARGS({Absyn.CREF(cr)}, {}))),_,_,graph,_)
-      equation
-        (cache,SOME((DAE.ARRAY(array = {}),_,_))) = Static.elabCref(cache,env, cr, false /* ??? */,false,pre,info);
-        s = SCodeDump.equationStr(inEEquation);
-        Error.addSourceMessage(Error.OVERCONSTRAINED_OPERATOR_SIZE_ZERO, {s}, info);
-      then
-        (cache,env,ih,DAE.emptyDae,csets,ci_state,graph);
-
-    // Connections.root(cr)
-    case (cache,env,ih,pre,csets,ci_state,SCode.EQ_NORETCALL(info=info,exp=Absyn.CALL(
-              function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT("root", {})),
-              functionArgs = Absyn.FUNCTIONARGS({Absyn.CREF(cr)}, {}))),_,_,graph,_)
-      equation
-        (cache,SOME((DAE.CREF(cr_,_),_,_))) = Static.elabCref(cache,env, cr, false /* ??? */,false,pre,info);
-        (cache,cr_) = PrefixUtil.prefixCref(cache,env,ih,pre, cr_);
-        graph = ConnectionGraph.addDefiniteRoot(graph, cr_);
-      then
-        (cache,env,ih,DAE.emptyDae,csets,ci_state,graph);
-
-    // Connections.potentialRoot(cr, priority = p) - zero sized cref
-    case (cache,env,ih,pre,csets,ci_state,SCode.EQ_NORETCALL(info=info,exp=Absyn.CALL(
-              function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT("potentialRoot", {})),
-              functionArgs = functionArgs)),_,_,graph,_)
-      equation
-        (cr,_) = potentialRootArguments(functionArgs, info, pre, inEEquation);
-        (cache,SOME((DAE.ARRAY(array = {}),_,_))) = Static.elabCref(cache,env, cr, false /* ??? */,false,pre,info);
-        s = SCodeDump.equationStr(inEEquation);
-        Error.addSourceMessage(Error.OVERCONSTRAINED_OPERATOR_SIZE_ZERO, {s}, info);
-      then
-        (cache,env,ih,DAE.emptyDae,csets,ci_state,graph);
-
-    // Connections.potentialRoot(cr, priority = p)
-    case (cache,env,ih,pre,csets,ci_state,SCode.EQ_NORETCALL(info=info,exp=Absyn.CALL(
-              function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT("potentialRoot", {})),
-              functionArgs = functionArgs)),_,_,graph,_)
-      equation
-        (cr, ipriority) = potentialRootArguments(functionArgs, info, pre, inEEquation);
-        (cache,SOME((DAE.CREF(cr_,_),_,_))) = Static.elabCref(cache, env, cr, false /* ??? */,false, pre, info);
-        (cache,cr_) = PrefixUtil.prefixCref(cache,env,ih,pre, cr_);
-        graph = ConnectionGraph.addPotentialRoot(graph, cr_, intReal(ipriority));
-      then
-        (cache,env,ih,DAE.emptyDae,csets,ci_state,graph);
-
-    // Connections.uniqueRoot(cr, message) - zero sized cref
-    case (cache,env,ih,pre,csets,ci_state,SCode.EQ_NORETCALL(info=info,exp=Absyn.CALL(
-              function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT("uniqueRoot", {})),
-              functionArgs = functionArgs)),_,_,graph,_)
-      equation
-        (cr,_) = uniqueRootArguments(functionArgs, info, pre, inEEquation);
-        (cache,SOME((DAE.ARRAY(array = {}),_,_))) = Static.elabCref(cache,env, cr, false /* ??? */,false,pre,info);
-        s = SCodeDump.equationStr(inEEquation);
-        Error.addSourceMessage(Error.OVERCONSTRAINED_OPERATOR_SIZE_ZERO, {s}, info);
-        Error.addSourceMessage(Error.NON_STANDARD_OPERATOR, {"Connections.uniqueRoot"}, info);
-      then
-        (cache,env,ih,DAE.emptyDae,csets,ci_state,graph);
-
-    // Connections.uniqueRoot(cr, message)
-    case (cache,env,ih,pre,csets,ci_state,SCode.EQ_NORETCALL(info=info,exp=Absyn.CALL(
-              function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT("uniqueRoot", {})),
-              functionArgs = functionArgs)),_,_,graph,_)
-      equation
-        (cr, msg) = uniqueRootArguments(functionArgs, info, pre, inEEquation);
-        (cache,exp,_,_) = Static.elabExp(cache, env, Absyn.CREF(cr), false, NONE(), true, pre, info);
-        (cache,msg_1,_,_) = Static.elabExp(cache, env, msg, false, NONE(), false, pre, info);
-        (cache,exp) = PrefixUtil.prefixExp(cache,env,ih,exp,pre);
-        (cache,msg_1) = PrefixUtil.prefixExp(cache,env,ih,msg_1,pre);
-        graph = ConnectionGraph.addUniqueRoots(graph, exp, msg_1);
-        Error.addSourceMessage(Error.NON_STANDARD_OPERATOR, {"Connections.uniqueRoot"}, info);
-      then
-        (cache,env,ih,DAE.emptyDae,csets,ci_state,graph);
-
-    // Connections.branch(cr1,cr2)
-    case (cache,env,ih,pre,csets,ci_state,SCode.EQ_NORETCALL(info=info,exp=Absyn.CALL(
-              function_ = Absyn.CREF_QUAL("Connections", {}, Absyn.CREF_IDENT("branch", {})),
-              functionArgs = Absyn.FUNCTIONARGS({Absyn.CREF(cr1), Absyn.CREF(cr2)}, {}))),_,_,graph,_)
-      equation
-        (cache,SOME((e_1,_,_))) = Static.elabCref(cache,env, cr1, false /* ??? */,false,pre,info);
-        (cache,SOME((e_2,_,_))) = Static.elabCref(cache,env, cr2, false /* ??? */,false,pre,info);
-        // handle zero sized crefs
-        b1 = Types.isZeroLengthArray(Expression.typeof(e_1));
-        b2 = Types.isZeroLengthArray(Expression.typeof(e_2));
-        if boolOr(b1, b2)
-        then // handle zero sized crefs
-          s = SCodeDump.equationStr(inEEquation);
-          Error.addSourceMessage(Error.OVERCONSTRAINED_OPERATOR_SIZE_ZERO, {s}, info);
-        else // not zero sized
-          DAE.CREF(cr1_,_) = e_1;
-          DAE.CREF(cr2_,_) = e_2;
-          (cache,cr1_) = PrefixUtil.prefixCref(cache,env,ih,pre, cr1_);
-          (cache,cr2_) = PrefixUtil.prefixCref(cache,env,ih,pre, cr2_);
-          graph = ConnectionGraph.addBranch(graph, cr1_, cr2_);
-        end if;
-      then
-        (cache,env,ih,DAE.emptyDae,csets,ci_state,graph);
-
-    // failure
-    case (_,env,_,_,_,_,eqn,_,_,_,_)
-      equation
-        true = Flags.isSet(Flags.FAILTRACE);
-        s = SCodeDump.equationStr(eqn);
-        Debug.trace("- handleConnectionsOperators failed for eqn: ");
-        Debug.traceln(s + " in scope:" + FGraph.getGraphNameStr(env));
-      then
-        fail();
-  end matchcontinue;
-end handleConnectionsOperators;
-
-protected function potentialRootArguments
-  input Absyn.FunctionArgs inFunctionArgs;
-  input SourceInfo info;
-  input Prefix.Prefix inPrefix;
-  input SCode.EEquation inEEquation;
-  output Absyn.ComponentRef outCref;
-  output Integer outPriority;
-algorithm
-  (outCref, outPriority) := matchcontinue inFunctionArgs
-    local
-      Absyn.ComponentRef cr;
-      Integer p;
-      String s1, s2;
-
-    case Absyn.FUNCTIONARGS({Absyn.CREF(cr)}, {}) then (cr, 0);
-    case Absyn.FUNCTIONARGS({Absyn.CREF(cr), Absyn.INTEGER(p)}, {}) then (cr, p);
-    case Absyn.FUNCTIONARGS({Absyn.CREF(cr)}, {Absyn.NAMEDARG("priority", Absyn.INTEGER(p))}) then (cr, p);
-    else
-      algorithm
-        s1 := SCodeDump.equationStr(inEEquation);
-        s2 := PrefixUtil.printPrefixStr3(inPrefix);
-        Error.addSourceMessage(Error.WRONG_TYPE_OR_NO_OF_ARGS, {s1, s2}, info);
-      then
-        fail();
-  end matchcontinue;
-end potentialRootArguments;
-
-protected function uniqueRootArguments
-  input Absyn.FunctionArgs inFunctionArgs;
-  input SourceInfo info;
-  input Prefix.Prefix inPrefix;
-  input SCode.EEquation inEEquation;
-  output Absyn.ComponentRef outCref;
-  output Absyn.Exp outMessage;
-algorithm
-  (outCref, outMessage) := matchcontinue inFunctionArgs
-    local
-      Absyn.ComponentRef cr;
-      Absyn.Exp msg;
-      String s1, s2;
-
-    case Absyn.FUNCTIONARGS({Absyn.CREF(cr)}, {}) then (cr, Absyn.STRING(""));
-    case Absyn.FUNCTIONARGS({Absyn.CREF(cr), msg}, {}) then (cr, msg);
-    case Absyn.FUNCTIONARGS({Absyn.CREF(cr)}, {Absyn.NAMEDARG("message", msg)}) then (cr, msg);
-    else
-      algorithm
-        s1 := SCodeDump.equationStr(inEEquation);
-        s2 := PrefixUtil.printPrefixStr3(inPrefix);
-        Error.addSourceMessage(Error.WRONG_TYPE_OR_NO_OF_ARGS, {s1, s2}, info);
-      then
-        fail();
-  end matchcontinue;
-end uniqueRootArguments;
 
 protected function checkReinitType
   "Checks that the base type of the given type is Real, otherwise it prints an
@@ -1206,7 +925,6 @@ protected function unroll
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input Ident inIdent;
   input DAE.Type inIteratorType;
@@ -1214,11 +932,8 @@ protected function unroll
   input list<SCode.EEquation> inEquations;
   input SCode.Initial inInitial;
   input Boolean inImplicit;
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache = inCache;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets = inSets;
-  output ConnectionGraph.ConnectionGraph outGraph = inGraph;
 protected
   list<Values.Value> values;
   FCore.Graph env;
@@ -1235,10 +950,10 @@ algorithm
       env := FGraph.addForIterator(env, inIdent, inIteratorType,
         DAE.VALBOUND(val, DAE.BINDING_FROM_DEFAULT_VALUE()), SCode.CONST(), SOME(DAE.C_CONST()));
 
-      (outCache, _, _, dae, outSets, ci_state, outGraph) :=
-        Inst.instList(outCache, env, inIH, inPrefix, outSets, ci_state,
+      (outCache, _, _, dae, ci_state) :=
+        Inst.instList(outCache, env, inIH, inPrefix, ci_state,
           if SCode.isInitial(inInitial) then instEInitialEquation else instEEquation,
-          inEquations, inImplicit, alwaysUnroll, outGraph);
+          inEquations, inImplicit, alwaysUnroll);
 
       daes := dae :: daes;
     end for;
@@ -2002,26 +1717,21 @@ public function instAlgorithm
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.AlgorithmSection inAlgorithm;
   input Boolean inImpl;
   input Boolean unrollForLoops "we should unroll for loops if they are part of an algorithm in a model";
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
-  (outCache,outEnv,outIH,outDae,outSets,outState,outGraph) :=
-  matchcontinue (inCache,inEnv,inIH,inPrefix,inSets,inState,inAlgorithm,inImpl,unrollForLoops,inGraph)
+  (outCache,outEnv,outIH,outDae,outState) :=
+  matchcontinue (inCache,inEnv,inIH,inPrefix,inState,inAlgorithm,inImpl,unrollForLoops)
     local
       FCore.Graph env;
       list<DAE.Statement> statements_1;
-      Connect.Sets csets;
       ClassInf.State ci_state;
       list<SCode.Statement> statements;
       SCode.Statement stmt;
@@ -2029,14 +1739,13 @@ algorithm
       FCore.Cache cache;
       Prefix.Prefix pre;
       SCode.AlgorithmSection algSCode;
-      ConnectionGraph.ConnectionGraph graph;
       InstanceHierarchy ih;
       DAE.ElementSource source "the origin of the element";
       DAE.DAElist dae;
       String s;
       SourceInfo info;
 
-    case (cache,env,ih,pre,csets,ci_state,SCode.ALGORITHM(statements = statements),impl,_,graph) /* impl */
+    case (cache,env,ih,pre,ci_state,SCode.ALGORITHM(statements = statements),impl,_) /* impl */
       equation
         // set the source of this element
         ci_state = ClassInf.trans(ci_state,ClassInf.FOUND_ALGORITHM());
@@ -2047,9 +1756,9 @@ algorithm
 
         dae = DAE.DAE({DAE.ALGORITHM(DAE.ALGORITHM_STMTS(statements_1),source)});
       then
-        (cache,env,ih,dae,csets,ci_state,graph);
+        (cache,env,ih,dae,ci_state);
 
-    case (_,_,_,_,_,ci_state,SCode.ALGORITHM(statements = stmt::_),_,_,_)
+    case (_,_,_,_,ci_state,SCode.ALGORITHM(statements = stmt::_),_,_)
       equation
         failure(_ = ClassInf.trans(ci_state,ClassInf.FOUND_ALGORITHM()));
         s = ClassInf.printStateStr(ci_state);
@@ -2074,37 +1783,31 @@ public function instInitialAlgorithm
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input SCode.AlgorithmSection inAlgorithm;
   input Boolean inImpl;
   input Boolean unrollForLoops "we should unroll for loops if they are part of an algorithm in a model";
-  input ConnectionGraph.ConnectionGraph inGraph;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output ClassInf.State outState;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
-  (outCache,outEnv,outIH,outDae,outSets,outState,outGraph):=
-  matchcontinue (inCache,inEnv,inIH,inPrefix,inSets,inState,inAlgorithm,inImpl,unrollForLoops,inGraph)
+  (outCache,outEnv,outIH,outDae,outState):=
+  matchcontinue (inCache,inEnv,inIH,inPrefix,inState,inAlgorithm,inImpl,unrollForLoops)
     local
       FCore.Graph env;
       list<DAE.Statement> statements_1;
-      Connect.Sets csets;
       ClassInf.State ci_state;
       list<SCode.Statement> statements;
       Boolean impl;
       FCore.Cache cache;
       Prefix.Prefix pre;
-      ConnectionGraph.ConnectionGraph graph;
       InstanceHierarchy ih;
       DAE.ElementSource source "the origin of the element";
       DAE.DAElist dae;
 
-    case (cache,env,ih,pre,csets,ci_state,SCode.ALGORITHM(statements = statements),impl,_,graph)
+    case (cache,env,ih,pre,ci_state,SCode.ALGORITHM(statements = statements),impl,_)
       equation
         // set the source of this element
         source = ElementSource.createElementSource(Absyn.dummyInfo, FGraph.getScopePath(env), pre);
@@ -2114,7 +1817,7 @@ algorithm
 
         dae = DAE.DAE({DAE.INITIALALGORITHM(DAE.ALGORITHM_STMTS(statements_1),source)});
       then
-        (cache,env,ih,dae,csets,ci_state,graph);
+        (cache,env,ih,dae,ci_state);
 
     else
       equation
@@ -2651,9 +2354,9 @@ protected function instIfEqBranch
   output list<DAE.Element> outEquations;
 algorithm
   checkForConnectInIfBranch(inEquations);
-  (outCache, outEnv, outIH, DAE.DAE(outEquations), _, outState, _) :=
-    Inst.instList(inCache, inEnv, inIH, inPrefix, Connect.emptySet, inState,
-      instEEquation, inEquations, inImpl, alwaysUnroll, ConnectionGraph.EMPTY);
+  (outCache, outEnv, outIH, DAE.DAE(outEquations), outState) :=
+    Inst.instList(inCache, inEnv, inIH, inPrefix, inState,
+      instEEquation, inEquations, inImpl, alwaysUnroll);
 end instIfEqBranch;
 
 protected function instIfEqBranches
@@ -2676,7 +2379,6 @@ algorithm
     local
       DAE.Mod mod;
       Prefix.Prefix pre;
-      Connect.Sets csets,csets_1,csets_2;
       ClassInf.State ci_state,ci_state_1,ci_state_2;
       Boolean impl;
       list<list<DAE.Element>> llb;
@@ -2721,9 +2423,9 @@ protected function instInitialIfEqBranch
   output list<DAE.Element> outEquations;
 algorithm
   checkForConnectInIfBranch(inEquations);
-  (outCache, outEnv, outIH, DAE.DAE(outEquations), _, outState, _) :=
-    Inst.instList(inCache, inEnv, inIH, inPrefix, Connect.emptySet, inState,
-      instEInitialEquation, inEquations, inImpl, alwaysUnroll, ConnectionGraph.EMPTY);
+  (outCache, outEnv, outIH, DAE.DAE(outEquations), outState) :=
+    Inst.instList(inCache, inEnv, inIH, inPrefix, inState,
+      instEInitialEquation, inEquations, inImpl, alwaysUnroll);
 end instInitialIfEqBranch;
 
 protected function instInitialIfEqBranches
@@ -2864,19 +2566,16 @@ protected function instWhenEqBranch
   input FCore.Graph inEnv;
   input InnerOuter.InstHierarchy inIH;
   input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
   input ClassInf.State inState;
   input tuple<Absyn.Exp, list<SCode.EEquation>> inBranch;
   input Boolean inImpl;
   input Boolean inUnrollLoops;
-  input ConnectionGraph.ConnectionGraph inGraph;
   input SourceInfo inInfo;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output DAE.Exp outCondition;
   output list<DAE.Element> outEquations;
-  output ConnectionGraph.ConnectionGraph outGraph;
 protected
   Absyn.Exp cond;
   list<SCode.EEquation> body;
@@ -2893,170 +2592,110 @@ algorithm
   end if;
 
   // Instantiate the when body.
-  (outCache, outEnv, outIH, DAE.DAE(outEquations), _, _, outGraph) :=
-    Inst.instList(outCache, inEnv, inIH, inPrefix, inSets, inState,
-      instEEquation, body, inImpl, alwaysUnroll, inGraph);
+  (outCache, outEnv, outIH, DAE.DAE(outEquations), _) :=
+    Inst.instList(outCache, inEnv, inIH, inPrefix, inState,
+      instEEquation, body, inImpl, alwaysUnroll);
 end instWhenEqBranch;
 
 protected function instConnect "
   Generates connectionsets for connections.
   Parameters and constants in connectors should generate appropriate assert statements.
   Hence, a DAE.Element list is returned as well."
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InnerOuter.InstHierarchy inIH;
-  input Connect.Sets inSets;
-  input Prefix.Prefix inPrefix;
-  input Absyn.ComponentRef inComponentRefLeft;
-  input Absyn.ComponentRef inComponentRefRight;
-  input Boolean inImplicit;
-  input ConnectionGraph.ConnectionGraph inGraph;
+  input output FCore.Cache cache;
+  input output FCore.Graph env;
+  input output InnerOuter.InstHierarchy ih;
+  input Prefix.Prefix prefix;
+  input Absyn.ComponentRef lhsName;
+  input Absyn.ComponentRef rhsName;
+  input Boolean implicit;
   input SourceInfo info;
-  output FCore.Cache outCache;
-  output FCore.Graph outEnv;
-  output InnerOuter.InstHierarchy outIH;
-  output Connect.Sets outSets;
-  output DAE.DAElist outDae;
-  output ConnectionGraph.ConnectionGraph outGraph;
+  input DAE.ElementSource source;
+        output DAE.DAElist dae;
+protected
+  Connect.Face face1, face2;
+  DAE.Element eq, conn1, conn2;
+  Option<DAE.Element> oconn1, oconn2;
+  DAE.ElementSource src;
 algorithm
-  (outCache,outEnv,outIH,outSets,outDae,outGraph):=
-  matchcontinue (inCache,inEnv,inIH,inSets,inPrefix,inComponentRefLeft,inComponentRefRight,inImplicit,inGraph)
-    local
-      DAE.ComponentRef c1_1,c2_1,c1_2,c2_2;
-      DAE.Type t1,t2;
-      DAE.Properties prop1,prop2;
-      DAE.Attributes attr1,attr2;
-      SCode.ConnectorType ct1, ct2;
-      Boolean impl;
-      DAE.Type ty1,ty2;
-      Connect.Face f1,f2;
-      Connect.Sets sets;
-      DAE.DAElist dae;
-      FCore.Graph env;
-      Prefix.Prefix pre;
-      Absyn.ComponentRef c1,c2;
-      FCore.Cache cache;
-      Absyn.InnerOuter io1,io2;
-      SCode.Parallelism prl1,prl2;
-      SCode.Variability vt1,vt2;
-      ConnectionGraph.ConnectionGraph graph;
-      InstanceHierarchy ih;
-      list<Absyn.Subscript> subs1,subs2;
-      list<Absyn.ComponentRef> crefs1,crefs2;
-      String s1,s2;
-      Boolean del1, del2;
+  try
+    (cache, oconn1, face1) :=
+      instConnector(cache, env, ih, lhsName, implicit, prefix, info);
+    (cache, oconn2, face2) :=
+      instConnector(cache, env, ih, rhsName, implicit, prefix, info);
 
-    // adrpo: check for connect(A, A) as we should give a warning and remove it!
-    case (cache,env,ih,sets,_,c1,c2,_,graph)
-      equation
-        true = Absyn.crefEqual(c1, c2);
-        s1 = Dump.printComponentRefStr(c1);
-        s2 = Dump.printComponentRefStr(c1);
-        Error.addSourceMessage(Error.SAME_CONNECT_INSTANCE, {s1, s2}, info);
-      then
-        (cache, env, ih, sets, DAE.emptyDae, graph);
-
-    // handle normal connectors!
-    case (cache,env,ih,sets,pre,c1,c2,impl,graph)
-      algorithm
-        (cache, c1_2, attr1, ct1, vt1, io1, f1, ty1, del1) :=
-          instConnector(cache, env, ih, c1, impl, pre, info);
-        (cache, c2_2, attr2, _, vt2, io2, f2, ty2, del2) :=
-          instConnector(cache, env, ih, c2, impl, pre, info);
-
-        if del1 or del2 then
-          // If either connector is a deleted conditional component, discard the connection.
-          dae := DAE.emptyDae;
-        elseif Types.isExpandableConnector(ty1) or Types.isExpandableConnector(ty2) then
-          // If either connector is expandable, fail and use the next case.
-          fail();
-        else
-          // Otherwise it's a normal connection.
-          checkConnectTypes(c1_2, ty1, f1, attr1, c2_2, ty2, f2, attr2, info);
-          (cache, _, ih, sets, dae, graph) :=
-            connectComponents(cache, env, ih, sets, pre, c1_2, f1, ty1, vt1, c2_2, f2, ty2, vt2, ct1, io1, io2, graph, info);
-          sets := ConnectUtil.increaseConnectRefCount(c1_2, c2_2, sets);
-        end if;
-      then
-        (cache,env,ih,sets,dae,graph);
-
-    // adrpo: handle expandable connectors!
-    case (cache,env,ih,sets,pre,c1,c2,impl,graph)
-      equation
-        ErrorExt.setCheckpoint("expandableConnectors");
-        true = System.getHasExpandableConnectors();
-        (cache,env,ih,sets,dae,graph) = connectExpandableConnectors(cache, env, ih, sets, pre, c1, c2, impl, graph, info);
-        ErrorExt.rollBack("expandableConnectors");
-      then
-        (cache,env,ih,sets,dae,graph);
-
-    // Case to display error for non constant subscripts in connectors
-    case (cache,env,_,_,pre,c1,c2,_,_)
-      equation
-        ErrorExt.rollBack("expandableConnectors");
-        subs1 = Absyn.getSubsFromCref(c1,true,true);
-        crefs1 = Absyn.getCrefsFromSubs(subs1,true,true);
-        subs2 = Absyn.getSubsFromCref(c2,true,true);
-        crefs2 = Absyn.getCrefsFromSubs(subs2,true,true);
-        //print("Crefs in " + Dump.printComponentRefStr(c1) + ": " + stringDelimitList(List.map(crefs1,Dump.printComponentRefStr),", ") + "\n");
-        //print("Crefs in " + Dump.printComponentRefStr(c2) + ": " + stringDelimitList(List.map(crefs2,Dump.printComponentRefStr),", ") + "\n");
-        s1 = Dump.printComponentRefStr(c1);
-        s2 = Dump.printComponentRefStr(c2);
-        s1 = "connect("+s1+", "+s2+")";
-        checkConstantVariability(crefs1,cache,env,s1,pre,info);
-        checkConstantVariability(crefs2,cache,env,s1,pre,info);
-      then
-        fail();
-
-    case (_,_,_,_,_,c1,c2,_,_)
-      equation
-        true = Flags.isSet(Flags.FAILTRACE);
-        Debug.traceln("- InstSection.instConnect failed for: connect(" +
-          Dump.printComponentRefStr(c1) + ", " +
-          Dump.printComponentRefStr(c2) + ")");
-      then
-        fail();
-  end matchcontinue;
+    // If neither connector is a deleted conditional component, create a
+    // connect equation.
+    if isNone(oconn1) or isNone(oconn2) then
+      dae := DAE.emptyDae;
+    else
+      SOME(conn1) := oconn1;
+      SOME(conn2) := oconn2;
+      eq := DAE.CONNECT_EQUATION(conn1, face1, conn2, face2, source);
+      dae := DAE.DAE({eq});
+    end if;
+  else
+    true := Flags.isSet(Flags.FAILTRACE);
+    Debug.traceln("- InstSection.instConnect failed for: connect(" +
+      Dump.printComponentRefStr(lhsName) + ", " +
+      Dump.printComponentRefStr(rhsName) + ")");
+  end try;
 end instConnect;
 
 protected function instConnector
-  input FCore.Cache inCache;
+  input output FCore.Cache cache;
   input FCore.Graph env;
   input InnerOuter.InstHierarchy ih;
   input Absyn.ComponentRef connectorCref;
   input Boolean impl;
   input Prefix.Prefix prefix;
   input SourceInfo info;
-  output FCore.Cache outCache = inCache;
-  output DAE.ComponentRef outCref;
-  output DAE.Attributes outAttr;
-  output SCode.ConnectorType connectorType;
-  output SCode.Variability variability;
-  output Absyn.InnerOuter innerOuter;
-  output Connect.Face face;
-  output DAE.Type ty;
-  output Boolean deleted;
+        output Option<DAE.Element> element;
+        output Connect.Face face;
 protected
   FCore.Status status;
-  Boolean is_expandable;
+  Boolean is_expandable, is_outer;
+  DAE.Attributes attr;
+  DAE.Type ty;
+  DAE.ComponentRef cref;
+  DAE.VarKind kind;
+  DAE.VarDirection dir;
+  DAE.VarParallelism par;
+  DAE.VarVisibility vis;
+  DAE.ConnectorType ct;
+  Prefix.Prefix pre = prefix;
 algorithm
-  outCref := ComponentReference.toExpCref(connectorCref);
-  (DAE.ATTR(connectorType = connectorType, variability = variability,
-    innerOuter = innerOuter), ty, status, is_expandable) :=
-      Lookup.lookupConnectorVar(env, outCref);
+  cref := ComponentReference.toExpCref(connectorCref);
+  (attr, ty, status, is_expandable) := Lookup.lookupConnectorVar(env, cref);
 
-  deleted := FCore.isDeletedComp(status);
-
-  if deleted or is_expandable then
+  if FCore.isDeletedComp(status) or is_expandable then
+    element := NONE();
     face := Connect.NO_FACE();
-    outAttr := DAE.dummyAttrVar;
   else
-    (outCache, DAE.CREF(componentRef = outCref), DAE.PROP(type_ = ty), outAttr) :=
-      Static.elabCrefNoEval(inCache, env, connectorCref, impl, false, prefix, info);
-    (outCache, outCref) := Static.canonCref(outCache, env, outCref, impl);
-    validConnector(ty, outCref, info);
-    face := ConnectUtil.componentFace(env, outCref);
+    is_outer := Absyn.isOuter(attr.innerOuter);
+    (cache, DAE.CREF(componentRef = cref), DAE.PROP(type_ = ty), attr) :=
+      Static.elabCrefNoEval(cache, env, connectorCref, impl, false, prefix, info);
+    (cache, cref) := Static.canonCref(cache, env, cref, impl);
+    validConnector(ty, cref, info);
     ty := sortConnectorType(ty);
+    kind := InstUtil.makeDaeVariability(attr.variability);
+    dir := InstUtil.makeDaeDirection(attr.direction);
+    par := DAE.NON_PARALLEL();
+    vis := InstUtil.makeDaeProt(attr.visibility);
+    ct := DAEUtil.toConnectorTypeNoState(attr.connectorType);
+
+    if is_outer then
+      try
+        InnerOuter.INST_INNER(innerPrefix = pre) :=
+          InnerOuter.lookupInnerVar(ih, prefix, ComponentReference.crefFirstIdent(cref));
+      else
+      end try;
+    end if;
+
+    face := ConnectUtil.connectorFace(cref);
+
+    (cache, cref) := PrefixUtil.prefixCref(cache, env, ih, pre, cref);
+    element := SOME(DAE.VAR(cref, kind, dir, par, vis, ty, NONE(), {}, ct,
+      DAE.emptyElementSource, NONE(), NONE(), attr.innerOuter));
   end if;
 end instConnector;
 
@@ -3102,760 +2741,64 @@ algorithm
   outGt := (1 == stringCompare(id1, id2));
 end connectorCompGt;
 
-protected function checkConstantVariability "
-Author BZ, 2009-09
-  Helper function for instConnect, prints error message for the case with non constant(or parameter) subscript(/s)"
-  input list<Absyn.ComponentRef> inrefs;
-  input FCore.Cache cache;
-  input FCore.Graph env;
-  input String affectedConnector;
-  input Prefix.Prefix inPrefix;
-  input SourceInfo info;
-algorithm
-  _ := matchcontinue(inrefs,cache,env,affectedConnector,inPrefix,info)
-  local
-    Absyn.ComponentRef cr;
-    DAE.Properties prop;
-    DAE.Const const;
-    Prefix.Prefix pre;
-    String s1;
-    list<Absyn.ComponentRef> refs;
-
-  case({},_,_,_,_,_) then ();
-  case(cr::refs,_,_,_,pre,_)
-    equation
-      (_,SOME((_,prop,_))) = Static.elabCref(cache,env,cr,false,false,pre,info);
-      const = Types.propertiesListToConst({prop});
-      true = Types.isParameterOrConstant(const);
-      checkConstantVariability(refs,cache,env,affectedConnector,pre,info);
-    then
-      ();
-  case(cr::_,_,_,_,pre,_)
-    equation
-      (_,SOME((_,prop,_))) = Static.elabCref(cache,env,cr,false,false,pre,info);
-      const = Types.propertiesListToConst({prop});
-      false = Types.isParameterOrConstant(const);
-      //print(" error for: " + affectedConnector + " subscript: " + Dump.printComponentRefStr(cr) + " non constant \n");
-      s1 = Dump.printComponentRefStr(cr);
-      Error.addSourceMessage(Error.CONNECTOR_ARRAY_NONCONSTANT, {affectedConnector,s1}, info);
-    then
-      ();
-end matchcontinue;
-end checkConstantVariability;
-
-protected function connectExpandableConnectors
-"@author: adrpo
-  this function handle the connections of expandable connectors"
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InnerOuter.InstHierarchy inIH;
-  input Connect.Sets inSets;
-  input Prefix.Prefix inPrefix;
-  input Absyn.ComponentRef inComponentRefLeft;
-  input Absyn.ComponentRef inComponentRefRight;
-  input Boolean inImpl;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input SourceInfo info;
-  output FCore.Cache outCache;
-  output FCore.Graph outEnv;
-  output InnerOuter.InstHierarchy outIH;
-  output Connect.Sets outSets;
-  output DAE.DAElist outDae;
-  output ConnectionGraph.ConnectionGraph outGraph;
-algorithm
-  (outCache,outEnv,outIH,outSets,outDae,outGraph) :=
-  matchcontinue (inCache,inEnv,inIH,inSets,inPrefix,inComponentRefLeft,inComponentRefRight,inImpl,inGraph,info)
-    local
-      DAE.ComponentRef c1_1,c2_1,c1_2,c2_2, c1p,c2p;
-      DAE.Type t1,t2;
-      DAE.Properties prop1,prop2;
-      DAE.Attributes attr1,attr2,attr;
-      SCode.ConnectorType ct1, ct2;
-      Boolean impl;
-      DAE.Type ty1,ty2,ty;
-      Connect.Sets sets;
-      DAE.DAElist dae, daeExpandable;
-      FCore.Graph env, envExpandable, envComponent, env1, env2, envComponentEmpty;
-      Prefix.Prefix pre;
-      Absyn.ComponentRef c1,c2,c1_prefix;
-      FCore.Cache cache;
-      Absyn.InnerOuter io1,io2;
-      SCode.Variability vt1,vt2;
-      SCode.Parallelism prl1,prl2;
-      ConnectionGraph.ConnectionGraph graph;
-      InstanceHierarchy ih;
-      String componentName;
-      Absyn.Direction dir1,dir2;
-      DAE.Binding binding;
-      Option<DAE.Const> cnstForRange;
-      InstTypes.SplicedExpData splicedExpData;
-      ClassInf.State state;
-      list<String> variables1, variables2, variablesUnion;
-      DAE.ElementSource source;
-      SCode.Visibility vis1, vis2;
-      Absyn.ArrayDim arrDims;
-      DAE.Dimensions daeDims;
-
-    // both c1 and c2 are expandable
-    case (cache,env,ih,sets,pre,c1,c2,impl,graph,_)
-      equation
-        (cache,SOME((DAE.CREF(c1_1,_),_,attr1))) = Static.elabCref(cache, env, c1, impl, false, pre, info);
-        (cache,SOME((DAE.CREF(c2_1,_),_,attr2))) = Static.elabCref(cache, env, c2, impl, false, pre, info);
-        (cache,c1_2) = Static.canonCref(cache, env, c1_1, impl);
-        (cache,c2_2) = Static.canonCref(cache, env, c2_1, impl);
-        (attr1,ty1) = Lookup.lookupConnectorVar(env,c1_2);
-        (attr2,ty2) = Lookup.lookupConnectorVar(env,c2_2);
-        DAE.ATTR(connectorType = SCode.POTENTIAL()) = attr1;
-        DAE.ATTR(connectorType = SCode.POTENTIAL()) = attr2;
-        true = Types.isExpandableConnector(ty1);
-        true = Types.isExpandableConnector(ty2);
-
-        // do the union of the connectors by adding the missing
-        // components from one to the other and vice-versa.
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, ">>>> connect(expandable, expandable)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")" );
-
-        // get the environments of the expandable connectors
-        // which contain all the virtual components.
-        (_,_,_,_,_,_,_,env1,_) = Lookup.lookupVar(cache, env, c1_2);
-        (_,_,_,_,_,_,_,env2,_) = Lookup.lookupVar(cache, env, c2_2);
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "1 connect(expandable, expandable)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")" );
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "env ===>\n" + FGraph.printGraphStr(env));
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "env(c1) ===>\n" + FGraph.printGraphStr(env1));
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "env(c2) ===>\n" + FGraph.printGraphStr(env2));
-
-        // get the virtual components
-        variables1 = FGraph.getVariablesFromGraphScope(env1);
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "Variables1: " + stringDelimitList(variables1, ", "));
-        variables2 = FGraph.getVariablesFromGraphScope(env2);
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "Variables2: " + stringDelimitList(variables2, ", "));
-        variablesUnion = List.union(variables1, variables2);
-        // sort so we have them in order
-        variablesUnion = List.sort(variablesUnion, Util.strcmpBool);
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "Union of expandable connector variables: " + stringDelimitList(variablesUnion, ", "));
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "2 connect(expandable, expandable)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // then connect each of the components normally.
-        (cache,env,ih,sets,dae,graph) = connectExpandableVariables(cache,env,ih,sets,pre,c1,c2,variablesUnion,impl,graph,info);
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "<<<< connect(expandable, expandable)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-      then
-        (cache,env,ih,sets,dae,graph);
-
-    // c2 is expandable, forward to c1 expandable by switching arguments.
-    case (cache,env,ih,sets,pre,c1,c2,impl,graph,_)
-      equation
-        // c2 is expandable
-        (cache,NONE()) = Static.elabCref(cache, env, c2, impl, false, pre, info);
-        (cache,SOME((DAE.CREF(_,_),_,_))) = Static.elabCref(cache, env, c1, impl, false, pre, info);
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "connect(existing, expandable)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-        (cache,env,ih,sets,dae,graph) = connectExpandableConnectors(cache,env,ih,sets,pre,c2,c1,impl,graph,info);
-      then
-        (cache,env,ih,sets,dae,graph);
-
-    // c1 is expandable, catch error that c1 is an IDENT! it should be at least a.x
-    case (cache,env,_,_,pre,c1 as Absyn.CREF_IDENT(),c2,impl,_,_)
-      equation
-        // c1 is expandable
-        (cache,NONE()) = Static.elabCref(cache, env, c1, impl, false, pre, info);
-        // adrpo: TODO! FIXME! add this as an Error not as a print!
-        print("Error: The marked virtual expandable component reference in connect([" +
-         PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Absyn.printComponentRefStr(c1) + "], " +
-         PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Absyn.printComponentRefStr(c2) + "); should be qualified, i.e. expandableConnectorName.virtualName!\n");
-      then
-        fail();
-
-    // c1 is expandable and c2 is existing BUT contains MORE THAN 1 component
-    // c1 is expandable and SHOULD be qualified!
-    case (cache,env,ih,sets,pre,c1 as Absyn.CREF_QUAL(),c2,impl,graph,_)
-      equation
-        // c1 is expandable
-        (cache,NONE()) = Static.elabCref(cache, env, c1, impl, false, pre, info);
-        (cache,SOME((DAE.CREF(c2_1,_),_,attr2))) = Static.elabCref(cache, env, c2, impl, false, pre, info);
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, ">>>> connect(expandable, existing)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // lookup the existing connector
-        (cache,c2_2) = Static.canonCref(cache,env, c2_1, impl);
-        (attr2,ty2) = Lookup.lookupConnectorVar(env,c2_2);
-        // bind the attributes
-        DAE.ATTR(ct2,prl2,vt2,_,io2,vis2) = attr2;
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "1 connect(expandable, existing)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // strip the last prefix!
-        c1_prefix = Absyn.crefStripLast(c1);
-        // elab expandable connector
-        (cache,SOME((DAE.CREF(c1_1,_),_,_))) = Static.elabCref(cache,env,c1_prefix,impl,false,pre,info);
-        // lookup the expandable connector
-        (cache,c1_2) = Static.canonCref(cache, env, c1_1, impl);
-        (_,ty1) = Lookup.lookupConnectorVar(env, c1_2);
-        // make sure is expandable!
-        true = Types.isExpandableConnector(ty1);
-        // strip last subs to get the full type!
-        c1_2 = ComponentReference.crefStripLastSubs(c1_2);
-        (_,attr,ty,binding,cnstForRange,_,_,envExpandable,_) = Lookup.lookupVar(cache, env, c1_2);
-        (_,_,_,_,_,_,_,envComponent,_) = Lookup.lookupVar(cache, env, c2_2);
-
-        // we have more than 1 variables in the envComponent, we need to add an empty environment for c1
-        // and dive into!
-        variablesUnion = FGraph.getVariablesFromGraphScope(envComponent);
-        // more than 1 variables
-        true = listLength(variablesUnion) > 1;
-        // print("VARS MULTIPLE: [" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "/" + ComponentReference.printComponentRefStr(c2_2) + "] " + stringDelimitList(variablesUnion, ", ") + "\n");
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "2 connect(expandable, existing[MULTIPLE])(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // get the virtual component name
-        Absyn.CREF_IDENT(componentName, _) = Absyn.crefGetLastIdent(c1);
-
-        envComponentEmpty = FGraph.removeComponentsFromScope(envComponent);
-
-        // get the dimensions from the type!
-        daeDims = Types.getDimensions(ty2);
-        arrDims = List.map(daeDims,Expression.unelabDimension);
-        // add to the environment of the expandable
-        // connector the new virtual variable.
-        envExpandable = FGraph.cloneLastScopeRef(envExpandable);
-        envExpandable = FGraph.mkComponentNode(
-                          envExpandable,
-                          DAE.TYPES_VAR(componentName,
-                                        DAE.ATTR(ct2,prl2,vt2,Absyn.BIDIR(),io2,vis2),
-                                        ty2,DAE.UNBOUND(),
-                                        NONE()),
-                          SCode.COMPONENT(
-                            componentName,
-                            SCode.defaultPrefixes,
-                            SCode.ATTR(arrDims, SCode.POTENTIAL(), SCode.NON_PARALLEL(), SCode.VAR(), Absyn.BIDIR(),Absyn.NONFIELD()),
-                            Absyn.TPATH(Absyn.IDENT(""), NONE()), SCode.NOMOD(),
-                            SCode.noComment, NONE(), Absyn.dummyInfo),
-                          DAE.NOMOD(),
-                          FCore.VAR_TYPED(),
-          // add empty here to connect individual components!
-          envComponentEmpty);
-        // ******************************************************************************
-        // here we need to update the correct environment.
-        // walk the cref: c1_2 and update all the corresponding environments on the path:
-        // Example: c1_2 = a.b.c -> update env c, update env b with c, update env a with b!
-        env = updateEnvComponentsOnQualPath(
-                    cache,
-                    env,
-                    c1_2,
-                    attr,
-                    ty,
-                    binding,
-                    cnstForRange,
-                    envExpandable);
-        // ******************************************************************************
-
-        // c1 = Absyn.joinCrefs(ComponentReference.unelabCref(c1_2), Absyn.CREF_IDENT(componentName, {}));
-        // then connect each of the components normally.
-        (cache,env,ih,sets,dae,graph) = connectExpandableVariables(cache,env,ih,sets,pre,c1,c2,variablesUnion,impl,graph,info);
-      then
-        (cache,env,ih,sets,dae,graph);
-
-    // c1 is expandable and SHOULD be qualified!
-    case (cache,env,ih,sets,pre,c1 as Absyn.CREF_QUAL(),c2,impl,graph,_)
-      equation
-        // c1 is expandable
-        (cache,NONE()) = Static.elabCref(cache, env, c1, impl, false, pre, info);
-        (cache,SOME((DAE.CREF(c2_1,_),_,attr2))) = Static.elabCref(cache, env, c2, impl, false, pre, info);
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, ">>>> connect(expandable, existing)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // lookup the existing connector
-        (cache,c2_2) = Static.canonCref(cache,env, c2_1, impl);
-        (attr2,ty2) = Lookup.lookupConnectorVar(env,c2_2);
-        // bind the attributes
-        DAE.ATTR(ct2,prl2,vt2,_,io2,vis2) = attr2;
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "1 connect(expandable, existing)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // strip the last prefix!
-        c1_prefix = Absyn.crefStripLast(c1);
-        // elab expandable connector
-        (cache,SOME((DAE.CREF(c1_1,_),_,_))) = Static.elabCref(cache, env, c1_prefix, impl, false, pre, info);
-        // lookup the expandable connector
-        (cache,c1_2) = Static.canonCref(cache, env, c1_1, impl);
-        (attr1,ty1) = Lookup.lookupConnectorVar(env, c1_2);
-        // make sure is expandable!
-        true = Types.isExpandableConnector(ty1);
-        // strip last subs to get the full type!
-        c1_2 = ComponentReference.crefStripLastSubs(c1_2);
-        (_,attr,ty,binding,cnstForRange,_,_,envExpandable,_) = Lookup.lookupVar(cache, env, c1_2);
-        (_,_,_,_,_,_,_,envComponent,_) = Lookup.lookupVar(cache, env, c2_2);
-
-        // we have more than 1 variables in the envComponent, we need to add an empty environment for c1
-        // and dive into!
-        variablesUnion = FGraph.getVariablesFromGraphScope(envComponent);
-        // max 1 variable, should check for empty!
-        false = listLength(variablesUnion) > 1;
-        // print("VARS SINGLE: [" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "/" + ComponentReference.printComponentRefStr(c2_2) + "] " + stringDelimitList(variablesUnion, ", ") + "\n");
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "2 connect(expandable, existing[SINGLE])(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // get the virtual component name
-        Absyn.CREF_IDENT(componentName, _) = Absyn.crefGetLastIdent(c1);
-
-        envComponentEmpty = FGraph.removeComponentsFromScope(envComponent);
-
-        // get the dimensions from the type!
-        daeDims = Types.getDimensions(ty2);
-        arrDims = List.map(daeDims,Expression.unelabDimension);
-        // add to the environment of the expandable
-        // connector the new virtual variable.
-        envExpandable = FGraph.mkComponentNode(
-                          envExpandable,
-                          DAE.TYPES_VAR(
-                            componentName,
-                            DAE.ATTR(ct2,prl2,vt2,Absyn.BIDIR(),io2,vis2),
-                            ty2,DAE.UNBOUND(),NONE()),
-                          SCode.COMPONENT(
-                            componentName,
-                            SCode.defaultPrefixes,
-                            SCode.ATTR(arrDims, SCode.POTENTIAL(), SCode.NON_PARALLEL(), SCode.VAR(), Absyn.BIDIR(), Absyn.NONFIELD()),
-                            Absyn.TPATH(Absyn.IDENT(""), NONE()), SCode.NOMOD(),
-                            SCode.noComment, NONE(), Absyn.dummyInfo),
-                          DAE.NOMOD(),
-                          FCore.VAR_TYPED(),
-                          envComponentEmpty);
-        // ******************************************************************************
-        // here we need to update the correct environment.
-        // walk the cref: c1_2 and update all the corresponding environments on the path:
-        // Example: c1_2 = a.b.c -> update env c, update env b with c, update env a with b!
-        env = updateEnvComponentsOnQualPath(
-                    cache,
-                    env,
-                    c1_2,
-                    attr,
-                    ty,
-                    binding,
-                    cnstForRange,
-                    envExpandable);
-        // ******************************************************************************
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "3 connect(expandable, existing[SINGLE])(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")");
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "env expandable: " + FGraph.printGraphStr(envExpandable));
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "env component: " + FGraph.printGraphStr(envComponent));
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "env: " + FGraph.printGraphStr(env));
-
-        // use the cannon cref here as we will NOT find [i] in this environment!!!!
-        // c1 = Absyn.joinCrefs(ComponentReference.unelabCref(c1_2), Absyn.CREF_IDENT(componentName, {}));
-        // now it should be in the Env, fetch the info!
-        (cache,SOME((DAE.CREF(c1_1,_),_,_))) = Static.elabCref(cache, env, c1, impl, false, pre,info);
-        (cache,c1_2) = Static.canonCref(cache,env, c1_1, impl);
-        (attr1,ty1) = Lookup.lookupConnectorVar(env,c1_2);
-        // bind the attributes
-        DAE.ATTR(ct1,prl1,vt1,_,io1,vis1) = attr1;
-
-        // then connect the components normally.
-        (cache,env,ih,sets,dae,graph) = instConnect(cache,env,ih,sets,pre,c1,c2,impl,graph,info);
-
-        // adrpo: TODO! FIXME! check if is OK
-        state = ClassInf.CONNECTOR(Absyn.IDENT("expandable connector"), true);
-        (cache,c1p) = PrefixUtil.prefixCref(cache, env, ih, pre, c1_2);
-        (cache,c2p) = PrefixUtil.prefixCref(cache, env, ih, pre, c2_2);
-        source = ElementSource.createElementSource(info, FGraph.getScopePath(env), pre, (c1p,c2p));
-        // declare the added component in the DAE!
-        (cache,c1_2) = PrefixUtil.prefixCref(cache, env, ih, pre, c1_2);
-
-        // get the dimensions from the ty1 type!
-        daeDims = Types.getDimensions(ty1);
-        arrDims = List.map(daeDims,Expression.unelabDimension);
-        daeExpandable = generateExpandableDAE(cache,env,envExpandable,
-          c1_2,
-          state,
-          ty1,
-          SCode.ATTR(arrDims, ct1, prl1, vt1, Absyn.BIDIR(), Absyn.NONFIELD()),
-          vis1,
-          io1,
-          source);
-
-        dae = DAEUtil.joinDaes(dae, daeExpandable);
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "<<<< connect(expandable, existing)(" + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c1) + ", " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "." + Dump.printComponentRefStr(c2) + ")"); // \nDAE:" + DAEDump.dumpStr(daeExpandable, DAE.AvlTreePathFunction.Tree.EMPTY()));
-      then
-        (cache,env,ih,sets,dae,graph);
-
-    // both c1 and c2 are non expandable!
-    case (cache,env,_,_,pre,c1,c2,impl,_,_)
-      equation
-        // both of these are OK
-        (cache,SOME((DAE.CREF(c1_1,_),_,_))) = Static.elabCref(cache, env, c1, impl, false, pre, info);
-        (cache,SOME((DAE.CREF(c2_1,_),_,_))) = Static.elabCref(cache, env, c2, impl, false, pre, info);
-
-        (cache,c1_2) = Static.canonCref(cache,env, c1_1, impl);
-        (cache,c2_2) = Static.canonCref(cache,env, c2_1, impl);
-        (_,ty1) = Lookup.lookupConnectorVar(env,c1_2);
-        (_,ty2) = Lookup.lookupConnectorVar(env,c2_2);
-
-        // non-expandable
-        false = Types.isExpandableConnector(ty1);
-        false = Types.isExpandableConnector(ty2);
-
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "connect(non-expandable, non-expandable)(" + Dump.printComponentRefStr(c1) + ", " + Dump.printComponentRefStr(c2) + ")");
-        // then connect the components normally.
-      then
-        fail(); // fail to enter connect normally
-
-    /*/ failtrace
-    case (cache,env,_,_,pre,c1,c2,impl,_,_)
-      equation
-        true = Flags.isSet(Flags.SHOW_EXPANDABLE_INFO);
-        (cache,_) = Static.elabCref(cache, env, c1, impl, false, pre, info);
-        (cache,_) = Static.elabCref(cache, env, c2, impl, false, pre, info);
-
-        fprintln(Flags.SHOW_EXPANDABLE_INFO,
-           "connect(?, ?)(" +
-             Dump.printComponentRefStr(c1) + ", " +
-             Dump.printComponentRefStr(c2) + ")"
-           );
-      then
-        fail();*/
-  end matchcontinue;
-end connectExpandableConnectors;
-
-protected function generateExpandableDAE
-"@author: adrpo
- connect(expandable, non-expandable)
- should generate a DAE for the expandable part.
- Expand the array if needed."
- input FCore.Cache inCache;
- input FCore.Graph inParentEnv;
- input FCore.Graph inClassEnv;
- input DAE.ComponentRef cref;
- input ClassInf.State state;
- input DAE.Type ty;
- input SCode.Attributes attrs;
- input SCode.Visibility vis;
- input Absyn.InnerOuter io;
- input DAE.ElementSource source;
- output DAE.DAElist outDAE;
-algorithm
-  outDAE := match(inCache, inParentEnv, inClassEnv, cref, state, ty, attrs, vis, io, source)
-    local
-      Absyn.ArrayDim arrDims;
-      DAE.Dimensions daeDims;
-      DAE.DAElist daeExpandable;
-      list<DAE.ComponentRef> crefs;
-
-    // scalars and arrays
-    case (_, _, _, _, _, _, _, _, _, _)
-      equation
-        // get the dimensions from the type!
-        daeDims = Types.getDimensions(ty);
-        _ = List.map(daeDims,Expression.unelabDimension);
-        if listEmpty(daeDims)
-        then // empty dimensions
-         daeExpandable = InstDAE.daeDeclare(inCache, inParentEnv, inClassEnv, cref, state, ty,
-           attrs,
-           vis, NONE(), {}, NONE(), NONE(),
-           SOME(SCode.COMMENT(NONE(), SOME("virtual variable in expandable connector"))),
-           io, SCode.NOT_FINAL(), source, true);
-        else // not empty list
-          crefs = ComponentReference.expandCref(cref, false);
-          // print(" crefs: " + stringDelimitList(List.map(crefs, ComponentReference.printComponentRefStr),", ") + "\n");
-          daeExpandable = daeDeclareList(inCache, inParentEnv, inClassEnv, listReverse(crefs), state, ty, attrs, vis, io, source, DAE.emptyDae);
-        end if;
-      then
-        daeExpandable;
-
-  end match;
-end generateExpandableDAE;
-
-protected function daeDeclareList
-"declare a list of crefs, one for each array element"
- input FCore.Cache inCache;
- input FCore.Graph inParentEnv;
- input FCore.Graph inClassEnv;
- input list<DAE.ComponentRef> crefs;
- input ClassInf.State state;
- input DAE.Type ty;
- input SCode.Attributes attrs;
- input SCode.Visibility vis;
- input Absyn.InnerOuter io;
- input DAE.ElementSource source;
- input DAE.DAElist acc;
- output DAE.DAElist outDAE;
-algorithm
-  outDAE := match(inCache, inParentEnv, inClassEnv, crefs, state, ty, attrs, vis, io, source, acc)
-    local
-      Absyn.ArrayDim arrDims;
-      DAE.Dimensions daeDims;
-      DAE.DAElist daeExpandable;
-      list<DAE.ComponentRef> lst;
-      DAE.ComponentRef cref;
-
-    case (_, _, _, {}, _, _, _, _, _, _, _) then acc;
-
-    case (_, _, _, cref::lst, _, _, _, _, _, _, _)
-      equation
-        daeExpandable = InstDAE.daeDeclare(inCache, inParentEnv, inClassEnv, cref, state, ty,
-           attrs,
-           vis, NONE(), {}, NONE(), NONE(),
-           SOME(SCode.COMMENT(NONE(), SOME("virtual variable in expandable connector"))),
-           io, SCode.NOT_FINAL(), source, true);
-        daeExpandable = DAEUtil.joinDaes(daeExpandable, acc);
-        daeExpandable = daeDeclareList(inCache, inParentEnv, inClassEnv, lst, state, ty, attrs, vis, io, source, daeExpandable);
-      then
-        daeExpandable;
-  end match;
-end daeDeclareList;
-
-protected function updateEnvComponentsOnQualPath
-"@author: adrpo 2010-10-05
-  This function will fetch the environments on the
-  cref path and update the last one with the given input,
-  then update all the environment back to the root.
-  Example:
-    input: env[a], a.b.c.d, env[d]
-    update env[c] with env[d]
-    update env[b] with env[c]
-    update env[a] with env[b]"
-  input FCore.Cache inCache "cache";
-  input FCore.Graph inEnv "the environment we should update!";
-  input DAE.ComponentRef virtualExpandableCref;
-  input DAE.Attributes virtualExpandableAttr;
-  input DAE.Type virtualExpandableTy;
-  input DAE.Binding virtualExpandableBinding;
-  input Option<DAE.Const> virtualExpandableCnstForRange;
-  input FCore.Graph virtualExpandableEnv "the virtual component environment!";
-  output FCore.Graph outEnv "the returned updated environment";
-algorithm
-  outEnv :=
-  match(inCache, inEnv, virtualExpandableCref, virtualExpandableAttr, virtualExpandableTy,
-                virtualExpandableBinding, virtualExpandableCnstForRange, virtualExpandableEnv)
-    local
-      FCore.Cache cache;
-      FCore.Graph topEnv "the environment we should update!";
-      DAE.ComponentRef veCref, qualCref;
-      DAE.Attributes veAttr,currentAttr;
-      DAE.Type veTy,currentTy;
-      DAE.Binding veBinding,currentBinding;
-      Option<DAE.Const> veCnstForRange,currentCnstForRange;
-      FCore.Graph veEnv "the virtual component environment!";
-      FCore.Graph updatedEnv "the returned updated environment";
-      FCore.Graph currentEnv, realEnv;
-      FCore.Scope forLoopScope;
-      String currentName;
-
-    // we have reached the top, update and return!
-    case (_, topEnv, DAE.CREF_IDENT(ident = currentName), veAttr, veTy, veBinding, veCnstForRange, veEnv)
-      equation
-        (realEnv, forLoopScope) = FGraph.splitGraphScope(topEnv);
-        // update the topEnv
-        updatedEnv = FGraph.updateComp(
-                       realEnv,
-                       DAE.TYPES_VAR(currentName, veAttr, veTy, veBinding, veCnstForRange),
-                       FCore.VAR_TYPED(),
-                       veEnv);
-        updatedEnv = FGraph.pushScope(updatedEnv, forLoopScope);
-      then
-        updatedEnv;
-
-    // if we have a.b.x, update b with x and call us recursively with a.b
-    case (cache, topEnv, veCref as DAE.CREF_QUAL(), veAttr, veTy, veBinding, veCnstForRange, veEnv)
-      equation
-        // get the last one
-        currentName = ComponentReference.crefLastIdent(veCref);
-        // strip the last one
-        qualCref = ComponentReference.crefStripLastIdent(veCref);
-        // strip the last subs
-        qualCref = ComponentReference.crefStripLastSubs(qualCref);
-        // find the correct environment to update
-        (_,currentAttr,currentTy,currentBinding,currentCnstForRange,_,_,currentEnv,_) = Lookup.lookupVar(cache, topEnv, qualCref);
-
-        (realEnv, forLoopScope) = FGraph.splitGraphScope(currentEnv);
-        // update the current environment!
-        currentEnv = FGraph.updateComp(
-                       realEnv,
-                       DAE.TYPES_VAR(currentName, veAttr, veTy, veBinding, veCnstForRange),
-                       FCore.VAR_TYPED(),
-                       veEnv);
-        currentEnv = FGraph.pushScope(currentEnv, forLoopScope);
-
-        // call us recursively to reach the top!
-        updatedEnv = updateEnvComponentsOnQualPath(
-                      cache,
-                      topEnv,
-                      qualCref,
-                      currentAttr,
-                      currentTy,
-                      currentBinding,
-                      currentCnstForRange,
-                      currentEnv);
-      then
-        updatedEnv;
-  end match;
-end updateEnvComponentsOnQualPath;
-
-protected function connectExpandableVariables
-"@author: adrpo
-  this function handle the connections of expandable connectors
-  that contain components"
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InnerOuter.InstHierarchy inIH;
-  input Connect.Sets inSets;
-  input Prefix.Prefix inPrefix;
-  input Absyn.ComponentRef inComponentRefLeft;
-  input Absyn.ComponentRef inComponentRefRight;
-  input list<String> inVariablesUnion;
-  input Boolean inImpl;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input SourceInfo info;
-  output FCore.Cache outCache;
-  output FCore.Graph outEnv;
-  output InnerOuter.InstHierarchy outIH;
-  output Connect.Sets outSets;
-  output DAE.DAElist outDae;
-  output ConnectionGraph.ConnectionGraph outGraph;
-algorithm
-  (outCache,outEnv,outIH,outSets,outDae,outGraph) :=
-  match (inCache,inEnv,inIH,inSets,inPrefix,inComponentRefLeft,inComponentRefRight,inVariablesUnion,inImpl,inGraph,info)
-    local
-      Boolean impl;
-      Connect.Sets sets;
-      DAE.DAElist dae, dae1, dae2;
-      FCore.Graph env;
-      Prefix.Prefix pre;
-      Absyn.ComponentRef c1,c2,c1_full,c2_full;
-      FCore.Cache cache;
-      ConnectionGraph.ConnectionGraph graph;
-      InstanceHierarchy ih;
-      list<String> names;
-      String name;
-
-    // handle empty case
-    case (cache,env,ih,sets,_,_,_,{},_,graph,_)
-      then (cache,env,ih,sets,DAE.emptyDae,graph);
-
-    // handle recursive call
-    case (cache,env,ih,sets,pre,c1,c2,name::names,impl,graph,_)
-      equation
-        // add name to both c1 and c2, then connect normally
-        c1_full = Absyn.joinCrefs(c1, Absyn.CREF_IDENT(name, {}));
-        c2_full = Absyn.joinCrefs(c2, Absyn.CREF_IDENT(name, {}));
-        // fprintln(Flags.SHOW_EXPANDABLE_INFO, "connect(full_expandable, full_expandable)(" + Dump.printComponentRefStr(c1_full) + ", " + Dump.printComponentRefStr(c2_full) + ")");
-
-        (cache,env,ih,sets,dae1,graph) = instConnect(cache,env,ih,sets,pre,c1_full,c2_full,impl,graph,info);
-
-        (cache,env,ih,sets,dae2,graph) = connectExpandableVariables(cache,env,ih,sets,pre,c1,c2,names,impl,graph,info);
-        dae = DAEUtil.joinDaes(dae1, dae2);
-      then
-        (cache,env,ih,sets,dae,graph);
-  end match;
-end connectExpandableVariables;
-
-protected function getStateFromType
-"@author: adrpo
-  this function gets the ClassInf.State from the given type.
-  it will fail if the type is not a complex type."
-  input DAE.Type ty;
-  output ClassInf.State outState;
-algorithm
-  outState := match (ty)
-    local
-      ClassInf.State state;
-    case (DAE.T_COMPLEX(complexClassType = state)) then state;
-    // TODO! check if subtype is needed here
-    case (DAE.T_SUBTYPE_BASIC(complexClassType = state)) then state;
-    // adpo: TODO! FIXME! add a debug print here!
-    else fail();
-  end match;
-end getStateFromType;
-
-protected function isConnectorType
-"@author: adrpo
-  this function checks if the given type is an expandable connector"
-  input DAE.Type ty;
-  output Boolean isConnector;
-algorithm
-  isConnector := match (ty)
-    case (DAE.T_COMPLEX(complexClassType = ClassInf.CONNECTOR(_,false))) then true;
-    // TODO! check if subtype is needed here
-    case (DAE.T_SUBTYPE_BASIC(complexClassType = ClassInf.CONNECTOR(_,false))) then true;
-    else false;
-  end match;
-end isConnectorType;
-
-protected function flipDirection
-"@author: adrpo
-  this function will flip direction:
-  input  -> output
-  output -> input
-  bidir  -> bidir"
-  input  Absyn.Direction inDir;
-  output Absyn.Direction outDir;
-algorithm
-  outDir := match(inDir)
-    case (Absyn.INPUT()) then Absyn.OUTPUT();
-    case (Absyn.OUTPUT()) then Absyn.INPUT();
-    case (Absyn.BIDIR()) then Absyn.BIDIR();
-  end match;
-end flipDirection;
-
 protected function validConnector
 "This function tests whether a type is a eligible to be used in connections."
   input DAE.Type inType;
   input DAE.ComponentRef inCref;
   input SourceInfo inInfo;
 algorithm
-  _ := matchcontinue (inType, inCref, inInfo)
+  _ := matchcontinue inType
     local
       ClassInf.State state;
       DAE.Type tp;
       String str;
 
-    case (DAE.T_REAL(), _, _) then ();
-    case (DAE.T_INTEGER(), _, _) then ();
-    case (DAE.T_STRING(), _, _) then ();
-    case (DAE.T_BOOL(), _, _) then ();
-    case (DAE.T_ENUMERATION(), _, _) then ();
+    case DAE.T_REAL() then ();
+    case DAE.T_INTEGER() then ();
+    case DAE.T_STRING() then ();
+    case DAE.T_BOOL() then ();
+    case DAE.T_ENUMERATION() then ();
     // clocks TODO! FIXME! check if +std=3.3
-    case (DAE.T_CLOCK(), _, _) then ();
+    case DAE.T_CLOCK() then ();
 
-    case (DAE.T_COMPLEX(complexClassType = state), _, _)
+    case DAE.T_COMPLEX(complexClassType = state)
       equation
         ClassInf.valid(state, SCode.R_CONNECTOR(false));
       then
         ();
 
-    case (DAE.T_COMPLEX(complexClassType = state), _, _)
+    case DAE.T_COMPLEX(complexClassType = state)
       equation
         ClassInf.valid(state, SCode.R_CONNECTOR(true));
       then
         ();
 
     // TODO, check if subtype is needed here
-    case (DAE.T_SUBTYPE_BASIC(complexClassType = state), _, _)
+    case DAE.T_SUBTYPE_BASIC(complexClassType = state)
       equation
         ClassInf.valid(state, SCode.R_CONNECTOR(false));
       then
         ();
 
     // TODO, check if subtype is needed here
-    case (DAE.T_SUBTYPE_BASIC(complexClassType = state), _, _)
+    case DAE.T_SUBTYPE_BASIC(complexClassType = state)
       equation
         ClassInf.valid(state, SCode.R_CONNECTOR(true));
       then
         ();
 
-    case (DAE.T_ARRAY(ty = tp), _, _)
+    case DAE.T_ARRAY(ty = tp)
       equation
         validConnector(tp, inCref, inInfo);
       then
         ();
 
     // everything in expandable is a connector!
-    case (_, _, _)
-      equation
-        true = ConnectUtil.isExpandable(inCref);
-      then
-        ();
+    //case (_, _, _)
+    //  equation
+    //    true = ConnectUtil.isExpandable(inCref);
+    //  then
+    //    ();
 
     else
       equation
@@ -4058,360 +3001,6 @@ algorithm
   end match;
 end checkConnectTypesInnerOuter;
 
-public function connectComponents "
-  This function connects two components and generates connection
-  sets along the way.  For simple components (of type Real) it
-  adds the components to the set, and for complex types it traverses
-  the subcomponents and recursively connects them to each other.
-  A DAE.Element list is returned for assert statements."
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InnerOuter.InstHierarchy inIH;
-  input Connect.Sets inSets;
-  input Prefix.Prefix inPrefix3;
-  input DAE.ComponentRef cr1;
-  input Connect.Face inFace5;
-  input DAE.Type inType6;
-  input SCode.Variability vt1;
-  input DAE.ComponentRef cr2;
-  input Connect.Face inFace8;
-  input DAE.Type inType9;
-  input SCode.Variability vt2;
-  input SCode.ConnectorType inConnectorType;
-  input Absyn.InnerOuter io1;
-  input Absyn.InnerOuter io2;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input SourceInfo info;
-  output FCore.Cache outCache;
-  output FCore.Graph outEnv;
-  output InnerOuter.InstHierarchy outIH;
-  output Connect.Sets outSets;
-  output DAE.DAElist outDae;
-  output ConnectionGraph.ConnectionGraph outGraph;
-algorithm
-  (outCache,outEnv,outIH,outSets,outDae,outGraph) :=
-  matchcontinue (inCache,inEnv,inIH,inSets,inPrefix3,cr1,inFace5,inType6,vt1,cr2,inFace8,inType9,vt2,inConnectorType,io1,io2,inGraph,info)
-    local
-      DAE.ComponentRef c1_1,c2_1,c1,c2,c1p,c2p;
-      Connect.Sets sets_1,sets;
-      FCore.Graph env;
-      Prefix.Prefix pre;
-      Connect.Face f1,f2;
-      DAE.Type t1, t2, bc_tp1, bc_tp2, equalityConstraintFunctionReturnType;
-      DAE.Dimension dim1,dim2;
-      DAE.DAElist dae;
-      list<DAE.Var> l1,l2;
-      SCode.ConnectorType ct;
-      String c1_str,t1_str,t2_str,c2_str;
-      FCore.Cache cache;
-      ConnectionGraph.ConnectionGraph graph;
-      InstanceHierarchy ih;
-      DAE.ElementSource source "the origin of the element";
-      DAE.InlineType inlineType1, inlineType2;
-      Absyn.Path fpath1, fpath2;
-      Integer idim1,idim2,dim_int;
-      DAE.Exp zeroVector, crefExp1, crefExp2, exp;
-      list<DAE.Element>  breakDAEElements, elts;
-      SCode.Element equalityConstraintFunction;
-      DAE.Dimensions dims,dims2;
-      list<DAE.ComponentRef> crefs1, crefs2;
-      DAE.Const const1,const2;
-      list<DAE.Exp> lhsl, rhsl;
-
-    // connections to outer components
-    case(cache,env,ih,sets,pre,c1,f1,_,_,c2,f2,_,_,ct,_,_,graph,_)
-      equation
-        false = SCode.streamBool(ct);
-        // print("Connecting components: " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "/" +
-        //    ComponentReference.printComponentRefStr(c1) + "[" + Dump.unparseInnerouterStr(io1) + "]" + " = " +
-        //    ComponentReference.printComponentRefStr(c2) + "[" + Dump.unparseInnerouterStr(io2) + "]\n");
-        true = InnerOuter.outerConnection(io1,io2);
-
-
-        // prefix outer with the prefix of the inner directly!
-        (cache, DAE.CREF(c1_1, _)) =
-           PrefixUtil.prefixExp(cache, env, ih, Expression.crefExp(c1), pre);
-        (cache, DAE.CREF(c2_1, _)) =
-           PrefixUtil.prefixExp(cache, env, ih, Expression.crefExp(c2), pre);
-
-        // set the source of this element
-        source = ElementSource.createElementSource(info, FGraph.getScopePath(env), pre, (c1_1,c2_1));
-
-        // print("CONNECT: " + PrefixUtil.printPrefixStrIgnoreNoPre(pre) + "/" +
-        //    ComponentReference.printComponentRefStr(c1_1) + "[" + Dump.unparseInnerouterStr(io1) + "]" + " = " +
-        //    ComponentReference.printComponentRefStr(c2_1) + "[" + Dump.unparseInnerouterStr(io2) + "]\n");
-
-        sets = ConnectUtil.addOuterConnection(pre,sets,c1_1,c2_1,io1,io2,f1,f2,source);
-      then
-        (cache,env,ih,sets,DAE.emptyDae,graph);
-
-    // Non-flow and Non-stream type Parameters and constants generate assert statements
-    case (cache,env,ih,sets,pre,c1,_,t1,_,c2,_,t2,_,SCode.POTENTIAL(),_,_,graph,_)
-      equation
-        true = SCode.isParameterOrConst(vt1) and SCode.isParameterOrConst(vt2) ;
-        true = Types.basicType(Types.arrayElementType(t1));
-        true = Types.basicType(Types.arrayElementType(t2));
-
-        (cache,c1_1) = PrefixUtil.prefixCref(cache,env,ih,pre, c1);
-        (cache,c2_1) = PrefixUtil.prefixCref(cache,env,ih,pre, c2);
-
-        // set the source of this element
-        source = ElementSource.createElementSource(info, FGraph.getScopePath(env), pre, (c1_1,c2_1));
-
-        crefExp1 = Expression.crefExp(c1_1);
-        crefExp2 = Expression.crefExp(c2_1);
-        // Evaluate constant crefs away
-        const1 = NFInstUtil.toConst(vt1);
-        const2 = NFInstUtil.toConst(vt2);
-        (cache, crefExp1, _) = Ceval.cevalIfConstant(cache, env, crefExp1, DAE.PROP(t1,const1), true, info);
-        (cache, crefExp2, _) = Ceval.cevalIfConstant(cache, env, crefExp2, DAE.PROP(t2,const2), true, info);
-
-        lhsl = Expression.arrayElements(crefExp1);
-        rhsl = Expression.arrayElements(crefExp2);
-        elts = List.threadMap1(lhsl, rhsl, generateConnectAssert, source);
-      then
-        (cache,env,ih,sets,DAE.DAE(elts),graph);
-
-    // Connection of two components of basic type.
-    case (cache, env, ih, sets, pre, c1, f1, t1, _, c2, f2, t2, _, _, _, _, graph, _)
-      equation
-        true = Types.basicType(t1);
-        true = Types.basicType(t2);
-
-        // TODO: FIXME!
-        // adrpo 2012-10-14: should we not prefix here??!!
-        (cache,c1_1) = PrefixUtil.prefixCref(cache,env,ih,pre, c1);
-        (cache,c2_1) = PrefixUtil.prefixCref(cache,env,ih,pre, c2);
-
-        // set the source of this element
-        source = ElementSource.createElementSource(info, FGraph.getScopePath(env), pre, (c1_1,c2_1));
-
-        sets_1 = ConnectUtil.addConnection(sets, c1, f1, c2, f2, inConnectorType, source);
-      then
-        (cache,env,ih,sets_1,DAE.emptyDae,graph);
-
-    /* - weird, seems not to be needed
-    // Connection of arrays of size zero!
-    case (cache,env,ih,sets,pre,
-        c1,f1,t1 as DAE.T_ARRAY(dims = {dim1}, ty = _),_,
-        c2,f2,t2 as DAE.T_ARRAY(dims = {dim2}, ty = _),_,
-        ct,_,_,graph,_)
-      equation
-        0 = Expression.dimensionSize(dim1);
-        0 = Expression.dimensionSize(dim2);
-        (cache,_) = PrefixUtil.prefixCref(cache,env,ih,pre,c1);
-        (cache,_) = PrefixUtil.prefixCref(cache,env,ih,pre,c2);
-        c1_str = Types.connectorTypeStr(ct) + ComponentReference.printComponentRefStr(c1);
-        (t1, _) = Types.stripTypeVars(t1);
-        t1_str = Types.unparseType(t1);
-        c2_str = Types.connectorTypeStr(ct) + ComponentReference.printComponentRefStr(c2);
-        (t2, _) = Types.stripTypeVars(t2);
-        t2_str = Types.unparseType(t2);
-        c1_str = stringAppendList({c1_str," type: ",t1_str});
-        c2_str = stringAppendList({c2_str," type: ",t2_str});
-        Error.addSourceMessage(Error.CONNECT_ARRAY_SIZE_ZERO, {c1_str,c2_str},info);
-      then
-        (cache,env,ih,sets,DAE.emptyDae,graph);*/
-
-    // Connection of arrays of complex types
-    case (cache,env,ih,sets,pre,
-        c1,f1,DAE.T_ARRAY(dims = {dim1}, ty = t1),_,
-        c2,f2,DAE.T_ARRAY(dims = {dim2}, ty = t2),_,
-        ct as SCode.POTENTIAL(),_,_,graph,_)
-      equation
-        DAE.T_COMPLEX() = Types.arrayElementType(t1);
-        DAE.T_COMPLEX() = Types.arrayElementType(t2);
-
-        true = Expression.dimensionsKnownAndEqual(dim1, dim2);
-        _ = Expression.dimensionSize(dim1);
-
-        crefs1 = ComponentReference.expandCref(c1,false);
-        crefs2 = ComponentReference.expandCref(c2,false);
-        (cache, _, ih, sets_1, dae, graph) = connectArrayComponents(cache, env,
-          ih, sets, pre, crefs1, f1, t1, vt1, io1, crefs2, f2, t2, vt2, io2, ct,
-          graph, info);
-      then
-        (cache,env,ih,sets_1,dae,graph);
-
-    // Connection of arrays of subtype basic types with equality constraint
-    case (cache,env,ih,sets,pre,
-        c1,f1,DAE.T_ARRAY(dims = {dim1}, ty = t1),_,
-        c2,f2,DAE.T_ARRAY(dims = {dim2}, ty = t2),_,
-        ct as SCode.POTENTIAL(),_,_,graph,_)
-      equation
-        DAE.T_SUBTYPE_BASIC(equalityConstraint = SOME(_)) = Types.arrayElementType(t1);
-        DAE.T_SUBTYPE_BASIC(equalityConstraint = SOME(_)) = Types.arrayElementType(t2);
-
-        true = Expression.dimensionsKnownAndEqual(dim1, dim2);
-        _ = Expression.dimensionSize(dim1);
-
-        crefs1 = ComponentReference.expandCref(c1,false);
-        crefs2 = ComponentReference.expandCref(c2,false);
-        (cache, _, ih, sets_1, dae, graph) = connectArrayComponents(cache, env,
-          ih, sets, pre, crefs1, f1, t1, vt1, io1, crefs2, f2, t2, vt2, io2, ct,
-          graph, info);
-      then
-        (cache,env,ih,sets_1,dae,graph);
-
-    // Connection of arrays
-    case (cache,env,ih,sets,pre,
-        c1, f1, t1 as DAE.T_ARRAY(), _,
-        c2, f2, t2 as DAE.T_ARRAY(), _,
-        ct,_,_,graph,_)
-      equation
-        dims = Types.getDimensions(t1);
-        dims2 = Types.getDimensions(t2);
-        true = List.isEqualOnTrue(dims, dims2, Expression.dimensionsKnownAndEqual);
-
-        // set the source of this element
-        (cache,c1p) = PrefixUtil.prefixCref(cache, env, ih, pre, c1);
-        (cache,c2p) = PrefixUtil.prefixCref(cache, env, ih, pre, c2);
-        source = ElementSource.createElementSource(info, FGraph.getScopePath(env), pre, (c1p,c2p));
-
-        sets_1 = ConnectUtil.addArrayConnection(sets, c1, f1, c2, f2, source, ct);
-      then
-        (cache,env,ih,sets_1,DAE.emptyDae,graph);
-
-    // Connection of connectors with an equality constraint.
-    case (cache,env,ih,sets,pre,c1,f1,t1 as DAE.T_COMPLEX(equalityConstraint=SOME((fpath1,idim1,inlineType1))),_,
-                                c2,f2,t2 as DAE.T_COMPLEX(equalityConstraint=SOME((_,_,_))),_,
-                                ct as SCode.POTENTIAL(),_,_,
-        (graph as ConnectionGraph.GRAPH(updateGraph = true)),_)
-      equation
-        (cache,c1_1) = PrefixUtil.prefixCref(cache,env,ih,pre, c1);
-        (cache,c2_1) = PrefixUtil.prefixCref(cache,env,ih,pre, c2);
-        // Connect components ignoring equality constraints
-        (cache,env,ih,sets_1,dae,_) =
-        connectComponents(cache, env, ih, sets, pre, c1, f1, t1, vt1, c2, f2,
-          t2, vt2, ct, io1, io2, ConnectionGraph.NOUPDATE_EMPTY, info);
-
-        // set the source of this element
-        source = ElementSource.createElementSource(info, FGraph.getScopePath(env), pre, (c1_1,c2_1));
-
-        // Add an edge to connection graph. The edge contains the
-        // dae to be added in the case where the edge is broken.
-        zeroVector = Expression.makeRealArrayOfZeros(idim1);
-        crefExp1 = Expression.crefExp(c1_1);
-        crefExp2 = Expression.crefExp(c2_1);
-        equalityConstraintFunctionReturnType =
-          DAE.T_ARRAY(DAE.T_REAL_DEFAULT,{DAE.DIM_INTEGER(idim1)},DAE.emptyTypeSource);
-
-        source = ElementSource.addAdditionalComment(source, " equation generated by overconstrained connection graph breaking");
-
-        breakDAEElements =
-          {DAE.ARRAY_EQUATION({DAE.DIM_INTEGER(idim1)}, zeroVector,
-                        DAE.CALL(fpath1,{crefExp1, crefExp2},
-                                 DAE.CALL_ATTR(
-                                   equalityConstraintFunctionReturnType,
-                                   false, false, false, false, inlineType1, DAE.NO_TAIL())), // use the inline type
-                        source // set the origin of the element
-                        )};
-        graph = ConnectionGraph.addConnection(graph, c1_1, c2_1, breakDAEElements);
-
-        // deal with equalityConstraint function!
-        // instantiate and add the equalityConstraint function to the dae function tree!
-        (cache,equalityConstraintFunction,env) = Lookup.lookupClass(cache,env,fpath1);
-        (cache,fpath1) = Inst.makeFullyQualified(cache,env,fpath1);
-        cache = FCore.addCachedInstFuncGuard(cache,fpath1);
-        (cache,env,ih) =
-          InstFunction.implicitFunctionInstantiation(cache,env,ih,DAE.NOMOD(),Prefix.NOPRE(),equalityConstraintFunction,{});
-      then
-        (cache,env,ih,sets_1,dae,graph);
-
-    // Connection of connectors with an equality constraint extending BASIC TYPES
-    case (cache,env,ih,sets,pre,c1,f1,DAE.T_SUBTYPE_BASIC(complexType = t1, equalityConstraint=SOME((fpath1,idim1,inlineType1))),_,
-                                c2,f2,DAE.T_SUBTYPE_BASIC(complexType = t2, equalityConstraint=SOME((_,_,_))),_,
-                                ct as SCode.POTENTIAL(),_,_,
-        (graph as ConnectionGraph.GRAPH(updateGraph = true)),_)
-      equation
-        (cache,c1_1) = PrefixUtil.prefixCref(cache, env, ih, pre, c1);
-        (cache,c2_1) = PrefixUtil.prefixCref(cache, env, ih, pre, c2);
-        // Connect components ignoring equality constraints
-        (cache,env,ih,sets_1,dae,_) =
-        connectComponents(cache, env, ih, sets, pre, c1, f1, t1, vt1, c2, f2,
-          t2, vt2, ct, io1, io2, ConnectionGraph.NOUPDATE_EMPTY, info);
-
-        // set the source of this element
-        source = ElementSource.createElementSource(info, FGraph.getScopePath(env), pre, (c1_1,c2_1));
-
-        // Add an edge to connection graph. The edge contains the
-        // dae to be added in the case where the edge is broken.
-        zeroVector = Expression.makeRealArrayOfZeros(idim1);
-        crefExp1 = Expression.crefExp(c1_1);
-        crefExp2 = Expression.crefExp(c2_1);
-        equalityConstraintFunctionReturnType =
-          DAE.T_ARRAY(DAE.T_REAL_DEFAULT,{DAE.DIM_INTEGER(idim1)},DAE.emptyTypeSource);
-
-        source = ElementSource.addAdditionalComment(source, " equation generated by overconstrained connection graph breaking");
-
-        breakDAEElements =
-          {DAE.ARRAY_EQUATION({DAE.DIM_INTEGER(idim1)}, zeroVector,
-                        DAE.CALL(fpath1,{crefExp1, crefExp2},
-                                 DAE.CALL_ATTR(
-                                   equalityConstraintFunctionReturnType,
-                                   false, false, false, false, inlineType1, DAE.NO_TAIL())), // use the inline type
-                        source // set the origin of the element
-                        )};
-        graph = ConnectionGraph.addConnection(graph, ComponentReference.crefStripLastSubs(c1_1), ComponentReference.crefStripLastSubs(c2_1), breakDAEElements);
-
-        // deal with equalityConstraint function!
-        // instantiate and add the equalityConstraint function to the dae function tree!
-        (cache,equalityConstraintFunction,env) = Lookup.lookupClass(cache,env,fpath1);
-        (cache,fpath1) = Inst.makeFullyQualified(cache,env,fpath1);
-        cache = FCore.addCachedInstFuncGuard(cache,fpath1);
-        (cache,env,ih) =
-          InstFunction.implicitFunctionInstantiation(cache,env,ih,DAE.NOMOD(),Prefix.NOPRE(),equalityConstraintFunction,{});
-      then
-        (cache,env,ih,sets_1,dae,graph);
-
-    // Complex types t1 extending basetype
-    case (cache,env,ih,sets,pre,c1,f1,DAE.T_SUBTYPE_BASIC(complexType = bc_tp1),_,c2,f2,t2,_, ct,_,_,graph,_)
-      equation
-        (cache,_,ih,sets_1,dae,graph) = connectComponents(cache, env, ih, sets,
-            pre, c1, f1, bc_tp1, vt1, c2, f2, t2, vt2, ct, io1, io2, graph, info);
-      then
-        (cache,env,ih,sets_1,dae,graph);
-
-    // Complex types t2 extending basetype
-    case (cache,env,ih,sets,pre,c1,f1,t1,_,c2,f2,DAE.T_SUBTYPE_BASIC(complexType = bc_tp2),_,ct,_,_,graph,_)
-      equation
-        (cache,_,ih,sets_1,dae,graph) = connectComponents(cache, env, ih, sets,
-            pre, c1, f1, t1, vt1, c2, f2, bc_tp2, vt2, ct, io1, io2, graph, info);
-      then
-        (cache,env,ih,sets_1,dae,graph);
-
-    // Connection of complex connector, e.g. Pin
-    case (cache,env,ih,sets,pre,c1,f1,DAE.T_COMPLEX(varLst = l1),_,c2,f2,DAE.T_COMPLEX(varLst = l2),_,ct,_,_,graph,_)
-      equation
-        (cache,_,ih,sets_1,dae,graph) = connectVars(cache, env, ih, sets, pre,
-            c1, f1, l1, vt1, c2, f2, l2, vt2, ct, io1, io2, graph, info);
-      then
-        (cache,env,ih,sets_1,dae,graph);
-
-    // Error
-    case (cache,env,ih,_,pre,c1,_,t1,_,c2,_,t2,_,_,_,_,_,_)
-      equation
-        (cache,_) = PrefixUtil.prefixCref(cache,env,ih,pre, c1);
-        (cache,_) = PrefixUtil.prefixCref(cache,env,ih,pre, c2);
-        c1_str = ComponentReference.printComponentRefStr(c1);
-        t1_str = Types.unparseType(t1);
-        c2_str = ComponentReference.printComponentRefStr(c2);
-        t2_str = Types.unparseType(t2);
-        c1_str = stringAppendList({"\n",c1_str," type:\n",t1_str});
-        c2_str = stringAppendList({"\n",c2_str," type:\n",t2_str});
-        Error.addSourceMessage(Error.INVALID_CONNECTOR_VARIABLE, {c1_str,c2_str},info);
-      then
-        fail();
-
-    else
-      equation
-        true = Flags.isSet(Flags.FAILTRACE);
-        Debug.trace("- InstSection.connectComponents failed\n");
-      then
-        fail();
-  end matchcontinue;
-end connectComponents;
-
 protected function generateConnectAssert
   input DAE.Exp inLhsExp;
   input DAE.Exp inRhsExp;
@@ -4425,145 +3014,6 @@ algorithm
   outAssert := DAE.ASSERT(exp, DAE.SCONST("automatically generated from connect"),
     DAE.ASSERTIONLEVEL_ERROR, inSource);
 end generateConnectAssert;
-
-protected function connectArrayComponents
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InnerOuter.InstHierarchy inIH;
-  input Connect.Sets inSets;
-  input Prefix.Prefix inPrefix;
-  input list<DAE.ComponentRef> inLhsCrefs;
-  input Connect.Face inLhsFace;
-  input DAE.Type inLhsType;
-  input SCode.Variability inLhsVar;
-  input Absyn.InnerOuter inLhsIO;
-  input list<DAE.ComponentRef> inRhsCrefs;
-  input Connect.Face inRhsFace;
-  input DAE.Type inRhsType;
-  input SCode.Variability inRhsVar;
-  input Absyn.InnerOuter inRhsIO;
-  input SCode.ConnectorType inConnectorType;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input SourceInfo inInfo;
-  output FCore.Cache outCache;
-  output FCore.Graph outEnv;
-  output InnerOuter.InstHierarchy outIH;
-  output Connect.Sets outSets;
-  output DAE.DAElist outDae;
-  output ConnectionGraph.ConnectionGraph outGraph;
-algorithm
-  (outCache, outEnv, outIH, outSets, outDae, outGraph) :=
-  match(inCache, inEnv, inIH, inSets, inPrefix,
-      inLhsCrefs, inLhsFace, inLhsType, inLhsVar, inLhsIO,
-      inRhsCrefs, inRhsFace, inRhsType, inRhsVar, inRhsIO,
-      inConnectorType, inGraph, inInfo)
-    local
-      DAE.ComponentRef lhs, rhs;
-      list<DAE.ComponentRef> rest_lhs, rest_rhs;
-      FCore.Cache cache;
-      FCore.Graph env;
-      InstanceHierarchy ih;
-      Connect.Sets sets;
-      DAE.DAElist dae1, dae2;
-      ConnectionGraph.ConnectionGraph graph;
-
-    case (_, _, _, _, _, lhs :: rest_lhs, _, _, _, _, rhs :: rest_rhs, _, _, _,
-        _, _, _, _)
-      equation
-        (cache, env, ih, sets, dae1, graph) = connectComponents(inCache, inEnv,
-          inIH, inSets, inPrefix, lhs, inLhsFace, inLhsType, inLhsVar, rhs,
-          inRhsFace, inRhsType, inRhsVar, inConnectorType, inLhsIO, inRhsIO,
-          inGraph, inInfo);
-        (cache, env, ih, sets, dae2, graph) = connectArrayComponents(cache,
-          env, ih, sets, inPrefix, rest_lhs, inLhsFace, inLhsType, inLhsVar,
-          inLhsIO, rest_rhs, inRhsFace, inRhsType, inRhsVar, inRhsIO,
-          inConnectorType, graph, inInfo);
-        dae1 = DAEUtil.joinDaes(dae1, dae2);
-      then
-        (cache, env, ih, sets, dae1, graph);
-
-    else (inCache, inEnv, inIH, inSets, DAE.emptyDae, inGraph);
-
-  end match;
-end connectArrayComponents;
-
-protected function connectVars
-"This function connects two subcomponents by adding the component
-  name to the current path and recursively connecting the components
-  using the function connectComponents."
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InnerOuter.InstHierarchy inIH;
-  input Connect.Sets inSets;
-  input Prefix.Prefix inPrefix;
-  input DAE.ComponentRef inComponentRef3;
-  input Connect.Face inFace4;
-  input list<DAE.Var> inTypesVarLst5;
-  input SCode.Variability vt1;
-  input DAE.ComponentRef inComponentRef6;
-  input Connect.Face inFace7;
-  input list<DAE.Var> inTypesVarLst8;
-  input SCode.Variability vt2;
-  input SCode.ConnectorType inConnectorType;
-  input Absyn.InnerOuter io1;
-  input Absyn.InnerOuter io2;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input SourceInfo info;
-  output FCore.Cache outCache;
-  output FCore.Graph outEnv;
-  output InnerOuter.InstHierarchy outIH;
-  output Connect.Sets outSets;
-  output DAE.DAElist outDae;
-  output ConnectionGraph.ConnectionGraph outGraph;
-algorithm
-  (outCache,outEnv,outIH,outSets,outDae,outGraph):=
-  match (inCache,inEnv,inIH,inSets,inPrefix,inComponentRef3,inFace4,inTypesVarLst5,vt1,inComponentRef6,inFace7,inTypesVarLst8,vt2,inConnectorType,io1,io2,inGraph,info)
-    local
-      Connect.Sets sets,sets_1,sets_2;
-      FCore.Graph env;
-      DAE.ComponentRef c1_1,c2_1,c1,c2;
-      DAE.DAElist dae,dae2,dae_1;
-      Connect.Face f1,f2;
-      String n;
-      DAE.Attributes attr1,attr2;
-      SCode.ConnectorType ct;
-      DAE.Type ty1,ty2;
-      list<DAE.Var> xs1,xs2;
-      SCode.Variability vta,vtb;
-      DAE.Type ty_2;
-      FCore.Cache cache;
-      ConnectionGraph.ConnectionGraph graph;
-      InstanceHierarchy ih;
-
-    case (cache,env,ih,sets,_,_,_,{},_,_,_,{},_,_,_,_,graph,_)
-      then (cache,env,ih,sets,DAE.emptyDae,graph);
-    case (cache,env,ih,sets,_,c1,f1,
-        (DAE.TYPES_VAR(name = n,attributes =(attr1 as DAE.ATTR(connectorType = ct,variability = vta)),ty = ty1) :: xs1),_,c2,f2,
-        (DAE.TYPES_VAR(attributes = (attr2 as DAE.ATTR(variability = vtb)),ty = ty2) :: xs2),_,_,_,_,graph,_)
-      equation
-        ty_2 = Types.simplifyType(ty1);
-        ct = propagateConnectorType(inConnectorType, ct);
-        c1_1 = ComponentReference.crefPrependIdent(c1, n, {}, ty_2);
-        c2_1 = ComponentReference.crefPrependIdent(c2, n, {}, ty_2);
-        checkConnectTypes(c1_1, ty1, f1, attr1, c2_1, ty2, f2, attr2, info);
-        (cache,_,ih,sets_1,dae,graph) = connectComponents(cache,env,ih,sets, inPrefix, c1_1, f1, ty1, vta, c2_1, f2, ty2, vtb, ct, io1, io2, graph, info);
-        (cache,_,ih,sets_2,dae2,graph) = connectVars(cache,env,ih,sets_1, inPrefix, c1, f1, xs1,vt1, c2, f2, xs2, vt2, inConnectorType, io1, io2, graph, info);
-        dae_1 = DAEUtil.joinDaes(dae, dae2);
-      then
-        (cache,env,ih,sets_2,dae_1,graph);
-  end match;
-end connectVars;
-
-protected function propagateConnectorType
-  input SCode.ConnectorType inConnectorType;
-  input SCode.ConnectorType inSubConnectorType;
-  output SCode.ConnectorType outSubConnectorType;
-algorithm
-  outSubConnectorType := match(inConnectorType, inSubConnectorType)
-    case (SCode.POTENTIAL(), _) then inSubConnectorType;
-    else inConnectorType;
-  end match;
-end propagateConnectorType;
 
 protected function expandArrayDimension
   "Expands an array into elements given a dimension, i.e.

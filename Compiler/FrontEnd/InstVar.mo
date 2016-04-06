@@ -42,7 +42,6 @@ encapsulated package InstVar
 public import Absyn;
 public import ClassInf;
 public import Connect;
-public import ConnectionGraph;
 public import DAE;
 public import FCore;
 public import FGraph;
@@ -118,17 +117,13 @@ the backend. The current implementation doesn't handle cases in which the
   input Boolean inImpl;
   input SCode.Comment inComment;
   input SourceInfo info;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input Connect.Sets inSets;
   input FCore.Graph componentDefinitionParentEnv;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output UnitAbsyn.InstStore outStore;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output DAE.Type outType;
-  output ConnectionGraph.ConnectionGraph outGraph;
 protected
   Absyn.InnerOuter io;
 algorithm
@@ -145,16 +140,14 @@ algorithm
 
   io := SCode.prefixesInnerOuter(inPrefixes);
 
-  (outCache,outEnv,outIH,outStore,outDae,outSets,outType,outGraph) :=
+  (outCache,outEnv,outIH,outStore,outDae,outType) :=
   matchcontinue (inCache, inEnv, inIH, inStore, inState, inMod, inPrefix,
       inIdent, inClass, inAttributes, inPrefixes, inDimensionLst,
-      inIntegerLst, inInstDims, inImpl, inComment, info, inGraph, inSets,
-      componentDefinitionParentEnv)
+      inIntegerLst, inInstDims, inImpl, inComment, info, componentDefinitionParentEnv)
     local
       DAE.Dimensions dims;
       FCore.Graph compenv,env,innerCompEnv,outerCompEnv;
       DAE.DAElist dae, outerDAE, innerDAE;
-      Connect.Sets csets,csetsInner,csetsOuter;
       DAE.Type ty;
       ClassInf.State ci_state;
       DAE.Mod mod;
@@ -167,7 +160,6 @@ algorithm
       Boolean impl;
       SCode.Comment comment;
       FCore.Cache cache;
-      ConnectionGraph.ConnectionGraph graph;
       InstanceHierarchy ih;
       DAE.ComponentRef cref, crefOuter, crefInner;
       DAE.Exp crefExp;
@@ -185,7 +177,7 @@ algorithm
 
 
     // is ONLY inner
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl as SCode.CLASS(name=typeName),attr,pf,dims,idxs,inst_dims,impl,comment,_,graph,csets,_)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl as SCode.CLASS(name=typeName),attr,pf,dims,idxs,inst_dims,impl,comment,_,_)
       equation
         // only inner!
         true = Absyn.isOnlyInner(io);
@@ -193,8 +185,8 @@ algorithm
         // fprintln(Flags.INNER_OUTER, "- InstVar.instVar inner: " + PrefixUtil.printPrefixStr(pre) + "/" + n + " in env: " + FGraph.printGraphPathStr(env));
 
         // instantiate as inner
-        (cache,innerCompEnv,ih,store,dae,csets,ty,graph) =
-          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph,csets);
+        (cache,innerCompEnv,ih,store,dae,ty) =
+          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
 
         (cache,cref) = PrefixUtil.prefixCref(cache,env,ih,pre, ComponentReference.makeCrefIdent(n, DAE.T_UNKNOWN_DEFAULT, {}));
         fullName = ComponentReference.printComponentRefStr(cref);
@@ -218,15 +210,15 @@ algorithm
                   fullName, // full component name
                   typePath, // fully qual type path
                   innerScope, // the scope,
-                  SOME(InnerOuter.INST_RESULT(cache,outerCompEnv,store,outerDAE,csets,ty,graph)), // instantiation result
+                  SOME(InnerOuter.INST_RESULT(cache,outerCompEnv,store,outerDAE,ty)), // instantiation result
                   {}, // outers connected to this inner
                   NONE()
                   ));
       then
-        (cache,innerCompEnv,ih,store,dae,csets,ty,graph);
+        (cache,innerCompEnv,ih,store,dae,ty);
 
     // is ONLY outer and it has modifications on it!
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_,graph,csets,_)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_,_)
       equation
         // only outer!
         true = Absyn.isOnlyOuter(io);
@@ -241,13 +233,13 @@ algorithm
         Error.addSourceMessage(Error.OUTER_MODIFICATION, {s}, info);
 
         // call myself without any modification!
-        (cache,compenv,ih,store,dae,csets,ty,graph) =
-          instVar(cache,env,ih,store,ci_state,DAE.NOMOD(),pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph,csets,componentDefinitionParentEnv);
+        (cache,compenv,ih,store,dae,ty) =
+          instVar(cache,env,ih,store,ci_state,DAE.NOMOD(),pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,componentDefinitionParentEnv);
      then
-        (cache,compenv,ih,store,dae,csets,ty,graph);
+        (cache,compenv,ih,store,dae,ty);
 
     // is ONLY outer output and is inside an instance of a State Machine state
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr as SCode.ATTR(direction=Absyn.OUTPUT()),pf,dims,idxs,inst_dims,impl,comment,_,graph, csets, _)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr as SCode.ATTR(direction=Absyn.OUTPUT()),pf,dims,idxs,inst_dims,impl,comment,_, _)
       equation
         // only outer!
         true = Absyn.isOnlyOuter(io);
@@ -263,9 +255,9 @@ algorithm
            _,
            _,
            _,
-           SOME(InnerOuter.INST_RESULT(cache,compenv,store,_,_,ty,graph)),
+           SOME(InnerOuter.INST_RESULT(cache,compenv,store,_,ty)),
            _,_) =
-          InnerOuter.lookupInnerVar(cache, env, ih, pre, n, io);
+          InnerOuter.lookupInnerVar(ih, pre, n);
 
 
         // the outer must be in an instance that is part of a State Machine
@@ -275,14 +267,14 @@ algorithm
         cref = PrefixUtil.prefixToCref(inPrefix);
         true = BaseHashSet.has(cref, sm);
 
-        (cache,compenv,ih,store,dae,csets,ty,graph) =
-          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph,csets);
+        (cache,compenv,ih,store,dae,ty) =
+          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
       then
-        (inCache,compenv,ih,store,dae,csets,ty,graph);
+        (inCache,compenv,ih,store,dae,ty);
 
 
     // is ONLY outer
-    case (cache,env,ih,store,_,mod,pre,n,_,_,pf,_,_,_,_,_,_,graph,csets,_)
+    case (cache,env,ih,store,_,mod,pre,n,_,_,pf,_,_,_,_,_,_,_)
       equation
         // only outer!
         true = Absyn.isOnlyOuter(io);
@@ -298,9 +290,9 @@ algorithm
            fullName,
            typePath,
            innerScope,
-           instResult as SOME(InnerOuter.INST_RESULT(cache,compenv,store,outerDAE,_,ty,graph)),
+           instResult as SOME(InnerOuter.INST_RESULT(cache,compenv,store,outerDAE,ty)),
            outers,_) =
-          InnerOuter.lookupInnerVar(cache, env, ih, pre, n, io);
+          InnerOuter.lookupInnerVar(ih, pre, n);
 
         // add outer prefix + component name and its corresponding inner prefix to the IH
         (cache,crefOuter) = PrefixUtil.prefixCref(cache,env,ih,pre, ComponentReference.makeCrefIdent(n, DAE.T_UNKNOWN_DEFAULT, {}));
@@ -324,10 +316,10 @@ algorithm
         // outer dae has no meaning!
         outerDAE = DAE.emptyDae;
       then
-        (inCache /* we don't want to return the old, crappy cache as ours was newer */,compenv,ih,store,outerDAE,csets,ty,graph);
+        (inCache /* we don't want to return the old, crappy cache as ours was newer */,compenv,ih,store,outerDAE,ty);
 
     // is ONLY outer and the inner was not yet set in the IH or we have no inner declaration!
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_,graph, csets, _)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_, _)
       equation
         // only outer!
         true = Absyn.isOnlyOuter(io);
@@ -346,7 +338,7 @@ algorithm
            _,
            NONE(),
            _,_) =
-          InnerOuter.lookupInnerVar(cache, env, ih, pre, n, io);
+          InnerOuter.lookupInnerVar(ih, pre, n);
 
         // fprintln(Flags.INNER_OUTER, "- InstVar.instVar failed to lookup inner: " + PrefixUtil.printPrefixStr(pre) + "/" + n + " in env: " + FGraph.printGraphPathStr(env));
 
@@ -365,13 +357,13 @@ algorithm
         end if;
 
         // call it normaly
-        (cache,compenv,ih,store,dae,_,ty,graph) =
-          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph, csets);
+        (cache,compenv,ih,store,dae,ty) =
+          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
       then
-        (cache,compenv,ih,store,dae,csets,ty,graph);
+        (cache,compenv,ih,store,dae,ty);
 
     // is ONLY outer and the inner was not yet set in the IH or we have no inner declaration!
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_,graph,csets,_)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_,_)
       equation
         // only outer!
         true = Absyn.isOnlyOuter(io);
@@ -380,7 +372,7 @@ algorithm
         true = Mod.modEqual(mod, DAE.NOMOD());
 
         // lookup in IH, crap, we couldn't find it!
-        failure(_ = InnerOuter.lookupInnerVar(cache, env, ih, pre, n, io));
+        failure(_ = InnerOuter.lookupInnerVar(ih, pre, n));
 
         // fprintln(Flags.INNER_OUTER, "- InstVar.instVar failed to lookup inner: " + PrefixUtil.printPrefixStr(pre) + "/" + n + " in env: " + FGraph.printGraphPathStr(env));
 
@@ -399,13 +391,13 @@ algorithm
         end if;
 
         // call it normally
-        (cache,compenv,ih,store,dae,_,ty,graph) =
-           instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph, csets);
+        (cache,compenv,ih,store,dae,ty) =
+           instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
       then
-        (cache,compenv,ih,store,dae,csets,ty,graph);
+        (cache,compenv,ih,store,dae,ty);
 
     // is inner outer output and is inside an instance of a State Machine state!
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl as SCode.CLASS(name=typeName),attr as SCode.ATTR(direction=Absyn.OUTPUT()) ,pf,dims,idxs,inst_dims,impl,comment,_,graph, csets, _)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl as SCode.CLASS(name=typeName),attr as SCode.ATTR(direction=Absyn.OUTPUT()) ,pf,dims,idxs,inst_dims,impl,comment,_, _)
       equation
         // both inner and outer
         true = Absyn.isInnerOuter(io);
@@ -417,8 +409,8 @@ algorithm
         cref = PrefixUtil.prefixToCref(inPrefix);
         true = BaseHashSet.has(cref, sm);
 
-        (cache,innerCompEnv,ih,store,dae,csetsInner,ty,graph) =
-           instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph, csets);
+        (cache,innerCompEnv,ih,store,dae,ty) =
+           instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
 
         // add it to the instance hierarchy
         (cache,cref) = PrefixUtil.prefixCref(cache,env,ih,pre, ComponentReference.makeCrefIdent(n, DAE.T_UNKNOWN_DEFAULT, {}));
@@ -443,26 +435,26 @@ algorithm
                   fullName,
                   typePath,
                   innerScope,
-                  SOME(InnerOuter.INST_RESULT(cache,outerCompEnv,store,innerDAE,csetsInner,ty,graph)),
+                  SOME(InnerOuter.INST_RESULT(cache,outerCompEnv,store,innerDAE,ty)),
                   {},
                   NONE()));
 
         // now call it normally
-        (cache,compenv,ih,store,dae,_,ty,graph) =
-           instVar_dispatch(cache,env,ih,store,ci_state,DAE.NOMOD(),pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph, csets);
+        (cache,compenv,ih,store,dae,ty) =
+           instVar_dispatch(cache,env,ih,store,ci_state,DAE.NOMOD(),pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
       then
-        (cache,compenv,ih,store,dae,csetsInner,ty,graph);
+        (cache,compenv,ih,store,dae,ty);
 
     // is inner outer!
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl as SCode.CLASS(name=typeName),attr,pf,dims,idxs,inst_dims,impl,comment,_,graph, csets, _)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl as SCode.CLASS(name=typeName),attr,pf,dims,idxs,inst_dims,impl,comment,_,_)
       equation
         // both inner and outer
         true = Absyn.isInnerOuter(io);
 
         // fprintln(Flags.INNER_OUTER, "- InstVar.instVar inner outer: " + PrefixUtil.printPrefixStr(pre) + "/" + n + " in env: " + FGraph.printGraphPathStr(env));
 
-        (cache,innerCompEnv,ih,store,dae,csetsInner,ty,graph) =
-           instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph, csets);
+        (cache,innerCompEnv,ih,store,dae,ty) =
+           instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
 
         // add it to the instance hierarchy
         (cache,cref) = PrefixUtil.prefixCref(cache,env,ih,pre, ComponentReference.makeCrefIdent(n, DAE.T_UNKNOWN_DEFAULT, {}));
@@ -487,14 +479,14 @@ algorithm
                   fullName,
                   typePath,
                   innerScope,
-                  SOME(InnerOuter.INST_RESULT(cache,outerCompEnv,store,innerDAE,csetsInner,ty,graph)),
+                  SOME(InnerOuter.INST_RESULT(cache,outerCompEnv,store,innerDAE,ty)),
                   {},
                   NONE()));
 
         // now instantiate it as an outer with no modifications
         pf = SCode.prefixesSetInnerOuter(pf, Absyn.OUTER());
-        (cache,compenv,ih,store,dae,_,ty,graph) =
-          instVar(cache,env,ih,store,ci_state,DAE.NOMOD(),pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph,csets,componentDefinitionParentEnv);
+        (cache,compenv,ih,store,dae,ty) =
+          instVar(cache,env,ih,store,ci_state,DAE.NOMOD(),pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,componentDefinitionParentEnv);
 
         // keep the dae we get from the instantiation of the outer
         outerDAE = dae;
@@ -502,23 +494,23 @@ algorithm
         // join the dae's (even thou' the outer is empty)
         dae = DAEUtil.joinDaes(outerDAE, innerDAE);
       then
-        (cache,compenv,ih,store,dae,csetsInner,ty,graph);
+        (cache,compenv,ih,store,dae,ty);
 
     // is NO INNER NOR OUTER or it failed before!
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_,graph, csets, _)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,_,_)
       equation
         // no inner no outer
         true = Absyn.isNotInnerOuter(io);
 
         // fprintln(Flags.INNER_OUTER, "- InstVar.instVar NO inner NO outer: " + PrefixUtil.printPrefixStr(pre) + "/" + n + " in env: " + FGraph.printGraphPathStr(env));
 
-        (cache,compenv,ih,store,dae,csets,ty,graph) =
-          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph,csets);
+        (cache,compenv,ih,store,dae,ty) =
+          instVar_dispatch(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info);
       then
-        (cache,compenv,ih,store,dae,csets,ty,graph);
+        (cache,compenv,ih,store,dae,ty);
 
     // failtrace
-    case (cache,env,ih,_,_,mod,pre,n,cl,_,_,_,_,_,_,_,_,_,_,_)
+    case (cache,env,ih,_,_,mod,pre,n,cl,_,_,_,_,_,_,_,_,_)
       equation
         true = Flags.isSet(Flags.FAILTRACE);
         (cache,cref) = PrefixUtil.prefixCref(cache,env,ih,pre, ComponentReference.makeCrefIdent(n, DAE.T_UNKNOWN_DEFAULT, {}));
@@ -554,16 +546,12 @@ protected function instVar_dispatch "A component element in a class may consist 
   input Boolean inImpl;
   input SCode.Comment inComment;
   input SourceInfo inInfo;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input Connect.Sets inSets;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output UnitAbsyn.InstStore outStore;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output DAE.Type outType;
-  output ConnectionGraph.ConnectionGraph outGraph;
 protected
   String comp_name;
   list<DAE.Dimension> dims;
@@ -592,10 +580,10 @@ algorithm
       attr := InstUtil.propagateClassPrefix(inAttributes, inPrefix);
     end if;
 
-    (outCache, outEnv, outIH, outStore, outDae, outSets, outType, outGraph) :=
+    (outCache, outEnv, outIH, outStore, outDae, outType) :=
       instVar2(outCache, inEnv, inIH, inStore, inState, mod, inPrefix, inName,
         cls, attr, inPrefixes, dims, inIndices, inInstDims, inImpl, inComment,
-        inInfo, inGraph, inSets);
+        inInfo);
 
     source := ElementSource.createElementSource(inInfo, FGraph.getScopePath(inEnv), inPrefix);
     (outCache, outDae) := addArrayVarEquation(outCache, inEnv, outIH, inState,
@@ -757,26 +745,21 @@ protected function instVar2
   input Boolean inImpl;
   input SCode.Comment inComment;
   input SourceInfo inInfo;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input Connect.Sets inSets;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output UnitAbsyn.InstStore outStore;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output DAE.Type outType;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
-  (outCache,outEnv,outIH,outStore,outDae,outSets,outType,outGraph):=
-  matchcontinue (inCache,inEnv,inIH,inStore,inState,inMod,inPrefix,inName,inClass,inAttributes,inPrefixes,inDimensions,inSubscripts,inInstDims,inImpl,inComment,inInfo,inGraph,inSets)
+  (outCache,outEnv,outIH,outStore,outDae,outType):=
+  matchcontinue (inCache,inEnv,inIH,inStore,inState,inMod,inPrefix,inName,inClass,inAttributes,inPrefixes,inDimensions,inSubscripts,inInstDims,inImpl,inComment,inInfo)
     local
       InstDims inst_dims,inst_dims_1;
       list<DAE.Dimension> dims_1;
       DAE.Exp e,e_1;
       DAE.Properties p;
       FCore.Graph env_1,env,compenv;
-      Connect.Sets csets;
       DAE.Type ty,ty_1,arrty;
       ClassInf.State st,ci_state;
       DAE.ComponentRef cr;
@@ -796,7 +779,6 @@ algorithm
       DAE.Dimension dim,dim2;
       FCore.Cache cache;
       SCode.Visibility vis;
-      ConnectionGraph.ConnectionGraph graph;
       InstanceHierarchy ih;
       DAE.ElementSource source "the origin of the element";
       String n2;
@@ -812,7 +794,7 @@ algorithm
       list<DAE.Var> vars;
 
     /*
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info,graph,csets)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,idxs,inst_dims,impl,comment,info)
       equation
         true = SCode.isPartial(cl);
 
@@ -825,7 +807,7 @@ algorithm
         ty = DAE.T_COMPLEX(ci_state, vars, NONE(), {path});
         ty = InstUtil.makeArrayType(dims, ty);
       then
-        (cache,env_1,ih,store,dae,csets,ty,graph);*/
+        (cache,env_1,ih,store,dae,ty);*/
 
 
     // Rules for instantation of function variables (e.g. input and output
@@ -845,7 +827,7 @@ algorithm
         //   R1 r2(v1=1, v1=2);     // <= Here
         // end out;
         // see testsuit/mofiles/RecordBindings.mo.
-     case (cache,env,ih,store,ci_state,mod as DAE.MOD(binding = NONE()),pre,n,cl as SCode.CLASS(restriction = SCode.R_RECORD(_)),attr,pf,dims,_,inst_dims,impl,comment,info,graph,csets)
+     case (cache,env,ih,store,ci_state,mod as DAE.MOD(binding = NONE()),pre,n,cl as SCode.CLASS(restriction = SCode.R_RECORD(_)),attr,pf,dims,_,inst_dims,impl,comment,info)
       equation
         true = ClassInf.isFunction(ci_state);
         InstUtil.checkFunctionVar(n, attr, pf, info);
@@ -856,8 +838,8 @@ algorithm
         //        anyhow the modifications are handled below.
         //        input Integer sequence[3](min = {1,1,1}, max = {3,3,3}) = {1,2,3}; // this will fail if we send in the mod.
         //        see testsuite/mofiles/Sequence.mo
-        (cache,env_1,ih,store,_,csets,ty,_,_,graph) =
-          Inst.instClass(cache, env, ih, store, /* mod */ DAE.NOMOD(), pre, cl, inst_dims, impl, InstTypes.INNER_CALL(), graph, csets);
+        (cache,env_1,ih,store,_,ty,_,_) =
+          Inst.instClass(cache, env, ih, store, /* mod */ DAE.NOMOD(), pre, cl, inst_dims, impl, InstTypes.INNER_CALL());
         //Make it an array type since we are not flattening
         ty_1 = InstUtil.makeArrayType(dims, ty);
         InstUtil.checkFunctionVarType(ty_1, ci_state, n, info);
@@ -879,11 +861,11 @@ algorithm
         dae = InstDAE.daeDeclare(cache, env, env_1, cr, ci_state, ty, attr, vis, SOME(e), {dims}, NONE(), dae_var_attr, SOME(comment), io, fin, source, true);
         store = UnitAbsynBuilder.instAddStore(store,ty,cr);
       then
-        (cache,env_1,ih,store,dae,csets,ty_1,graph);
+        (cache,env_1,ih,store,dae,ty_1);
 
     // mahge: function variables with eqMod modifications.
     // FIXHERE: They might have subMods too (variable attributes). see testsuite/mofiles/Sequence.mo
-    case (cache,env,ih,store,ci_state,mod as DAE.MOD(binding = SOME(_)),pre,n,cl,attr,pf,dims,_,inst_dims,impl,comment,info,graph,csets)
+    case (cache,env,ih,store,ci_state,mod as DAE.MOD(binding = SOME(_)),pre,n,cl,attr,pf,dims,_,inst_dims,impl,comment,info)
       equation
         true = ClassInf.isFunction(ci_state);
         InstUtil.checkFunctionVar(n, attr, pf, info);
@@ -895,8 +877,8 @@ algorithm
         //        anyhow the modifications are handled below.
         //        input Integer sequence[3](min = {1,1,1}, max = {3,3,3}) = {1,2,3}; // this will fail if we send in the mod.
         //        see testsuite/mofiles/Sequence.mo
-        (cache,env_1,ih,store,_,csets,ty,_,_,graph) =
-          Inst.instClass(cache, env, ih, store, /* mod */ DAE.NOMOD(), pre, cl, inst_dims, impl, InstTypes.INNER_CALL(), graph, csets);
+        (cache,env_1,ih,store,_,ty,_,_) =
+          Inst.instClass(cache, env, ih, store, /* mod */ DAE.NOMOD(), pre, cl, inst_dims, impl, InstTypes.INNER_CALL());
         //Make it an array type since we are not flattening
         ty_1 = InstUtil.makeArrayType(dims, ty);
         InstUtil.checkFunctionVarType(ty_1, ci_state, n, info);
@@ -917,18 +899,18 @@ algorithm
         dae = InstDAE.daeDeclare(cache, env, env_1, cr, ci_state, ty, attr, vis, SOME(e_1), {dims}, NONE(), dae_var_attr, SOME(comment), io, fin, source, true);
         store = UnitAbsynBuilder.instAddStore(store,ty,cr);
       then
-        (cache,env_1,ih,store,dae,csets,ty_1,graph);
+        (cache,env_1,ih,store,dae,ty_1);
 
 
     // Function variables without binding
-    case (cache,env,ih,store,ci_state,mod,pre,n,(cl as SCode.CLASS()),attr,pf,dims,_,inst_dims,impl,comment,info,graph,csets)
+    case (cache,env,ih,store,ci_state,mod,pre,n,(cl as SCode.CLASS()),attr,pf,dims,_,inst_dims,impl,comment,info)
        equation
         true = ClassInf.isFunction(ci_state);
         InstUtil.checkFunctionVar(n, attr, pf, info);
 
          //Instantiate type of the component, skip dae/not flattening
-        (cache,env_1,ih,store,_,csets,ty,_,_,_) =
-          Inst.instClass(cache, env, ih, store, mod, pre, cl, inst_dims, impl, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY, csets);
+        (cache,env_1,ih,store,_,ty,_,_) =
+          Inst.instClass(cache, env, ih, store, mod, pre, cl, inst_dims, impl, InstTypes.INNER_CALL());
         arrty = InstUtil.makeArrayType(dims, ty);
         InstUtil.checkFunctionVarType(arrty, ci_state, n, info);
         (cache,cr) = PrefixUtil.prefixCref(cache,env,ih,pre, ComponentReference.makeCrefIdent(n,arrty,{}));
@@ -941,23 +923,23 @@ algorithm
         dae = InstDAE.daeDeclare(cache, env, env_1, cr, ci_state, ty, attr,vis,NONE(), {dims},NONE(), dae_var_attr, SOME(comment),io,fin,source,true);
         store = UnitAbsynBuilder.instAddStore(store,ty,cr);
       then
-        (cache,env_1,ih,store,dae,csets,arrty,graph);
+        (cache,env_1,ih,store,dae,arrty);
 
     // Scalar variables.
-    case (_, _, _, _, _, _, _, _, _, _, _, {}, _, _, _, _, _, _, _)
+    case (_, _, _, _, _, _, _, _, _, _, _, {}, _, _, _, _, _)
       equation
         false = ClassInf.isFunction(inState);
         // print("InstVar.instVar2: Scalar variables case: inClass: " + SCodeDump.unparseElementStr(inClass) + "\n");
-        (cache, env, ih, store, dae, csets, ty, graph) = instScalar(
+        (cache, env, ih, store, dae, ty) = instScalar(
             inCache, inEnv, inIH, inStore, inState, inMod, inPrefix,
             inName, inClass, inAttributes, inPrefixes, inSubscripts,
-            inInstDims, inImpl, SOME(inComment), inInfo, inGraph, inSets);
+            inInstDims, inImpl, SOME(inComment), inInfo);
       then
-        (cache, env, ih, store, dae, csets, ty, graph);
+        (cache, env, ih, store, dae, ty);
 
     // Array variables with unknown dimensions, e.g. Real x[:] = [some expression that can be used to determine dimension].
     case (cache,env,ih,store,ci_state,(mod as DAE.MOD(binding = SOME(DAE.TYPED()))),pre,n,cl,attr,pf,
-        ((dim as DAE.DIM_UNKNOWN()) :: dims),idxs,inst_dims,impl,comment,info,graph, csets)
+        ((dim as DAE.DIM_UNKNOWN()) :: dims),idxs,inst_dims,impl,comment,info)
       equation
         true = Config.splitArrays();
         false = ClassInf.isFunction(ci_state);
@@ -966,15 +948,15 @@ algorithm
         dim2 = InstUtil.instWholeDimFromMod(dim, mod, n, info);
         inst_dims_1 = List.appendLastList(inst_dims, {dim2});
 
-        (cache,compenv,ih,store,dae,csets,ty,graph) =
-          instArray(cache,env,ih,store, ci_state, mod, pre, n, (cl,attr), pf, 1, dim2, dims, idxs, inst_dims_1, impl, comment,info,graph, csets);
+        (cache,compenv,ih,store,dae,ty) =
+          instArray(cache,env,ih,store, ci_state, mod, pre, n, (cl,attr), pf, 1, dim2, dims, idxs, inst_dims_1, impl, comment,info);
         ty_1 = InstUtil.liftNonBasicTypes(ty,dim2); // Do not lift types extending basic type, they are already array types.
       then
-        (cache,compenv,ih,store,dae,csets,ty_1,graph);
+        (cache,compenv,ih,store,dae,ty_1);
 
     // Array variables with unknown dimensions, non-expanding case
     case (cache,env,ih,store,ci_state,(mod as DAE.MOD(binding = SOME(DAE.TYPED()))),pre,n,cl,attr,pf,
-      ((dim as DAE.DIM_UNKNOWN()) :: dims),idxs,inst_dims,impl,comment,info,graph, csets)
+      ((dim as DAE.DIM_UNKNOWN()) :: dims),idxs,inst_dims,impl,comment,info)
       equation
         false = Config.splitArrays();
         false = ClassInf.isFunction(ci_state);
@@ -990,14 +972,14 @@ algorithm
         inst_dims_1 = List.appendLastList(inst_dims, {dim2});
         dime2 = Expression.dimensionSubscript(dim2);
 
-        (cache,compenv,ih,store,dae,csets,ty,graph) =
-          instVar2(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,dime2::idxs,inst_dims_1,impl,comment,info,graph,csets);
+        (cache,compenv,ih,store,dae,ty) =
+          instVar2(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,dime2::idxs,inst_dims_1,impl,comment,info);
         ty_1 = InstUtil.liftNonBasicTypes(ty,dim2); // Do not lift types extending basic type, they are already array types.
       then
-        (cache,compenv,ih,store,dae,csets,ty_1,graph);
+        (cache,compenv,ih,store,dae,ty_1);
 
     // Array variables , e.g. Real x[3]
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,(dim :: dims),idxs,inst_dims,impl,comment,info,graph,csets)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,(dim :: dims),idxs,inst_dims,impl,comment,info)
       equation
         true = Config.splitArrays();
         false = ClassInf.isFunction(ci_state);
@@ -1005,14 +987,14 @@ algorithm
         // dim = InstUtil.evalEnumAndBoolDim(dim);
         inst_dims_1 = List.appendLastList(inst_dims, {dim});
 
-        (cache,compenv,ih,store,dae,csets,ty,graph) =
-          instArray(cache,env,ih,store, ci_state, mod, pre, n, (cl,attr), pf, 1, dim, dims, idxs, inst_dims_1, impl, comment,info,graph,csets);
+        (cache,compenv,ih,store,dae,ty) =
+          instArray(cache,env,ih,store, ci_state, mod, pre, n, (cl,attr), pf, 1, dim, dims, idxs, inst_dims_1, impl, comment,info);
         ty_1 = InstUtil.liftNonBasicTypes(ty,dim); // Do not lift types extending basic type, they are already array types.
       then
-        (cache,compenv,ih,store,dae,csets,ty_1,graph);
+        (cache,compenv,ih,store,dae,ty_1);
 
     // Array variables , non-expanding case
-    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,(dim :: dims),idxs,inst_dims,impl,comment,info,graph,csets)
+    case (cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,(dim :: dims),idxs,inst_dims,impl,comment,info)
       equation
         false = Config.splitArrays();
         false = ClassInf.isFunction(ci_state);
@@ -1024,23 +1006,23 @@ algorithm
         inst_dims_1 = List.appendLastList(inst_dims, {dim});
         dime = Expression.dimensionSubscript(dim);
 
-        (cache,compenv,ih,store,dae,csets,ty,graph) =
-          instVar2(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,dime::idxs,inst_dims_1,impl,comment,info,graph,csets);
+        (cache,compenv,ih,store,dae,ty) =
+          instVar2(cache,env,ih,store,ci_state,mod,pre,n,cl,attr,pf,dims,dime::idxs,inst_dims_1,impl,comment,info);
         // Type lifting is done in the "scalar" case
         //ty_1 = InstUtil.liftNonBasicTypes(ty,dim); // Do not lift types extending basic type, they are already array types.
       then
-        (cache,compenv,ih,store,dae,csets,ty,graph);
+        (cache,compenv,ih,store,dae,ty);
 
     // Array variable with unknown dimensions, but no binding
     case (_,_,_,_,_,DAE.NOMOD(),_,n,_,_,_,
-      ((DAE.DIM_UNKNOWN()) :: _),_,_,_,_,info,_,_)
+      ((DAE.DIM_UNKNOWN()) :: _),_,_,_,_,info)
       equation
         Error.addSourceMessage(Error.FAILURE_TO_DEDUCE_DIMS_NO_MOD,{n},info);
       then
         fail();
 
     // failtrace
-    case (_,env,_,_,_,mod,pre,n,_,_,_,_,_,_,_,_,_,_,_)
+    case (_,env,_,_,_,mod,pre,n,_,_,_,_,_,_,_,_,_)
       equation
         true = Flags.isSet(Flags.FAILTRACE);
         Debug.traceln("- InstVar.instVar2 failed: " +
@@ -1070,21 +1052,17 @@ public function instScalar
   input Boolean inImpl;
   input Option<SCode.Comment> inComment;
   input SourceInfo inInfo;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input Connect.Sets inSets;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output UnitAbsyn.InstStore outStore;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output DAE.Type outType;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
-  (outCache, outEnv, outIH, outStore, outDae, outSets, outType, outGraph) :=
+  (outCache, outEnv, outIH, outStore, outDae, outType) :=
   matchcontinue(inCache, inEnv, inIH, inStore, inState, inMod, inPrefix,
       inName, inClass, inAttributes, inPrefixes, inSubscripts,
-      inInstDims, inImpl, inComment, inInfo, inGraph, inSets)
+      inInstDims, inImpl, inComment, inInfo)
 
     local
       String cls_name;
@@ -1092,13 +1070,11 @@ algorithm
       FCore.Graph env, env_1;
       InstanceHierarchy ih;
       UnitAbsyn.InstStore store;
-      Connect.Sets csets;
       SCode.Restriction res;
       SCode.Variability vt;
       list<DAE.Subscript> idxs;
       Prefix.Prefix pre;
       ClassInf.State ci_state;
-      ConnectionGraph.ConnectionGraph graph;
       DAE.DAElist dae, dae1, dae2;
       DAE.Type ty;
       DAE.Type ident_ty;
@@ -1118,16 +1094,16 @@ algorithm
     case (cache, env, ih, store, _, mod, _, _,
         SCode.CLASS(name = cls_name, restriction = res), SCode.ATTR(variability = vt),
         SCode.PREFIXES(visibility = vis, finalPrefix = fin, innerOuter = io),
-        idxs, _, _, _, _, _, _)
+        idxs, _, _, _, _)
       equation
         // Instantiate the components class.
         idxs = listReverse(idxs);
         ci_state = ClassInf.start(res, Absyn.IDENT(cls_name));
         predims = List.lastListOrEmpty(inInstDims);
         pre = PrefixUtil.prefixAdd(inName, predims, idxs, inPrefix, vt, ci_state, inInfo);
-        (cache, env_1, ih, store, dae1, csets, ty,_, opt_attr, graph) =
+        (cache, env_1, ih, store, dae1, ty,_, opt_attr) =
           Inst.instClass(cache, env, ih, store, inMod, pre, inClass, inInstDims,
-            inImpl, InstTypes.INNER_CALL(), inGraph, inSets);
+            inImpl, InstTypes.INNER_CALL());
 
         // Propagate and instantiate attributes.
         (cache, dae_var_attr) = InstBinding.instDaeVariableAttributes(cache, env_1, inMod, ty, {});
@@ -1186,7 +1162,7 @@ algorithm
         // The remaining work is done in instScalar2.
         dae = instScalar2(cr, ty, vt, inMod, dae2, dae1, source, inImpl);
       then
-        (cache, env_1, ih, store, dae, csets, ty, graph);
+        (cache, env_1, ih, store, dae, ty);
 
     else
       equation
@@ -1218,7 +1194,7 @@ algorithm
     case (DAE.CREF_IDENT(), _, _) then inAttributes;
     // Outside connector
     case (_, ClassInf.CONNECTOR(), _)
-      guard(ConnectUtil.faceEqual(ConnectUtil.componentFaceType(inCref), Connect.OUTSIDE()))
+      guard(ConnectUtil.faceEqual(ConnectUtil.connectorFace(inCref), Connect.OUTSIDE()))
       then inAttributes;
     // Component with input/output that is part of a state machine
     case (_, _, _)
@@ -1504,28 +1480,23 @@ protected function instArray
   input Boolean inBoolean;
   input SCode.Comment inComment;
   input SourceInfo info;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input Connect.Sets inSets;
   output FCore.Cache outCache;
   output FCore.Graph outEnv;
   output InnerOuter.InstHierarchy outIH;
   output UnitAbsyn.InstStore outStore;
   output DAE.DAElist outDae;
-  output Connect.Sets outSets;
   output DAE.Type outType;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
   checkDimensionGreaterThanZero(inDimension, inPrefix, inIdent, info);
   checkArrayModDimSize(inMod, inDimension, inPrefix, inIdent, info);
 
-  (outCache,outEnv,outIH,outStore,outDae,outSets,outType,outGraph) :=
-  matchcontinue (inCache,inEnv,inIH,inStore,inState,inMod,inPrefix,inIdent,inElement,inPrefixes,inInteger,inDimension,inDimensionLst,inIntegerLst,inInstDims,inBoolean,inComment,info,inGraph,inSets)
+  (outCache,outEnv,outIH,outStore,outDae,outType) :=
+  matchcontinue (inCache,inEnv,inIH,inStore,inState,inMod,inPrefix,inIdent,inElement,inPrefixes,inInteger,inDimension,inDimensionLst,inIntegerLst,inInstDims,inBoolean,inComment,info)
     local
       DAE.Exp e,lhs,rhs;
       DAE.Properties p;
       FCore.Cache cache;
       FCore.Graph env_1,env_2,env,compenv;
-      Connect.Sets csets;
       DAE.Type ty;
       ClassInf.State st,ci_state;
       DAE.ComponentRef cr;
@@ -1543,7 +1514,6 @@ algorithm
       Boolean impl;
       SCode.Comment comment;
       DAE.DAElist dae,dae1,dae2,daeLst;
-      ConnectionGraph.ConnectionGraph graph;
       InstanceHierarchy ih;
       DAE.ElementSource source "the origin of the element";
       DAE.Subscript s;
@@ -1557,12 +1527,12 @@ algorithm
       UnitAbsyn.InstStore store;
 
     // component environment If is a function var.
-    case (cache,env,ih,store,(ClassInf.FUNCTION()),mod,pre,n,(cl,_),_,_,dim,_,_,inst_dims,_,_,_,graph, csets)
+    case (cache,env,ih,store,(ClassInf.FUNCTION()),mod,pre,n,(cl,_),_,_,dim,_,_,inst_dims,_,_,_)
       equation
         true = Expression.dimensionUnknownOrExp(dim);
         SOME(DAE.TYPED(modifierAsExp = e, properties = p)) = Mod.modEquation(mod);
-        (cache,env_1,ih,store,_,_,ty,_,_,graph) =
-          Inst.instClass(cache,env,ih,store, mod, pre, cl, inst_dims, true, InstTypes.INNER_CALL(), graph, csets) "Which has an expression binding";
+        (cache,env_1,ih,store,_,ty,_,_) =
+          Inst.instClass(cache,env,ih,store, mod, pre, cl, inst_dims, true, InstTypes.INNER_CALL()) "Which has an expression binding";
         ty_1 = Types.simplifyType(ty);
         (cache,cr) = PrefixUtil.prefixCref(cache,env,ih,pre,ComponentReference.makeCrefIdent(n,ty_1,{})) "check their types";
         (rhs,_) = Types.matchProp(e,p,DAE.PROP(ty,DAE.C_VAR()),true);
@@ -1575,21 +1545,21 @@ algorithm
         dae = InstSection.makeDaeEquation(lhs, rhs, source, SCode.NON_INITIAL());
         // dae = DAEUtil.joinDaes(dae,DAEUtil.extractFunctions(dae1));
       then
-        (cache,env_1,ih,store,dae,inSets,ty,graph);
+        (cache,env_1,ih,store,dae,ty);
 
-    case (cache,env,ih,store,ci_state,mod,pre,n,(cl,attr),pf,i,_,dims,idxs,inst_dims,impl,comment,_,graph,csets)
+    case (cache,env,ih,store,ci_state,mod,pre,n,(cl,attr),pf,i,_,dims,idxs,inst_dims,impl,comment,_)
       equation
         false = Expression.dimensionKnown(inDimension);
         e = DAE.ICONST(i);
         s = DAE.INDEX(e);
         mod = Mod.lookupIdxModification(mod, e);
-        (cache,compenv,ih,store,daeLst,csets,ty,graph) =
-          instVar2(cache, env, ih, store, ci_state, mod, pre, n, cl, attr, pf, dims, (s :: idxs), inst_dims, impl, comment,info,graph, csets);
+        (cache,compenv,ih,store,daeLst,ty) =
+          instVar2(cache, env, ih, store, ci_state, mod, pre, n, cl, attr, pf, dims, (s :: idxs), inst_dims, impl, comment,info);
       then
-        (cache,compenv,ih,store,daeLst,csets,ty,graph);
+        (cache,compenv,ih,store,daeLst,ty);
 
     // Special case when instantiating Real[0]. We need to know the type
-    case (cache,env,ih,store,ci_state,_,pre,n,(cl,attr),pf,_,DAE.DIM_INTEGER(0),dims,idxs,inst_dims,impl,comment,_,graph, csets)
+    case (cache,env,ih,store,ci_state,_,pre,n,(cl,attr),pf,_,DAE.DIM_INTEGER(0),dims,idxs,inst_dims,impl,comment,_)
       equation
         ErrorExt.setCheckpoint("instArray Real[0]");
         e = DAE.ICONST(0);
@@ -1600,46 +1570,45 @@ algorithm
         // types, so we filter out only the redeclares.
         mod = Mod.filterRedeclares(inMod);
         mod = Mod.lookupIdxModification(mod, e);
-        (cache,compenv,ih,store,_,csets,ty,graph) =
-           instVar2(cache,env,ih,store, ci_state, mod, pre, n, cl, attr,pf, dims, (s :: idxs), inst_dims, impl, comment,info,graph, csets);
+        (cache,compenv,ih,store,_,ty) =
+           instVar2(cache,env,ih,store, ci_state, mod, pre, n, cl, attr,pf, dims, (s :: idxs), inst_dims, impl, comment,info);
         ErrorExt.rollBack("instArray Real[0]");
       then
-        (cache,compenv,ih,store,DAE.emptyDae,csets,ty,graph);
+        (cache,compenv,ih,store,DAE.emptyDae,ty);
 
     // Keep the errors if we somehow fail
-    case (_, _, _, _, _, _, _, _, _, _, _, DAE.DIM_INTEGER(0), _, _, _, _, _, _, _, _)
+    case (_, _, _, _, _, _, _, _, _, _, _, DAE.DIM_INTEGER(0), _, _, _, _, _, _)
       equation
         ErrorExt.delCheckpoint("instArray Real[0]");
       then
         fail();
 
     // Handle DIM_INTEGER, where the dimension is >0
-    case (cache,env,ih,store,ci_state,_,_,_,(_,_),_,_,DAE.DIM_INTEGER(integer = stop),_,_,_,_,_,_,graph,csets)
+    case (cache,env,ih,store,ci_state,_,_,_,(_,_),_,_,DAE.DIM_INTEGER(integer = stop),_,_,_,_,_,_)
       equation
-        (cache,env,ih,store,dae,csets,ty,graph) = instArrayDimInteger(cache,env,ih,store,ci_state,inMod,inPrefix,inIdent,inElement,inPrefixes,stop,inDimensionLst,inIntegerLst,inInstDims,inBoolean,inComment,info,graph,csets);
+        (cache,env,ih,store,dae,ty) = instArrayDimInteger(cache,env,ih,store,ci_state,inMod,inPrefix,inIdent,inElement,inPrefixes,stop,inDimensionLst,inIntegerLst,inInstDims,inBoolean,inComment,info);
       then
-        (cache,env,ih,store,dae,csets,ty,graph);
+        (cache,env,ih,store,dae,ty);
 
     // Instantiate an array whose dimension is determined by an enumeration.
     case (cache, env, ih, store, ci_state, mod, pre, n, (cl, attr), pf, _,
-        DAE.DIM_ENUM(), dims, idxs, inst_dims, impl, comment, _, graph, csets)
+        DAE.DIM_ENUM(), dims, idxs, inst_dims, impl, comment, _)
       then instArrayDimEnum(cache, env, ih, store, ci_state, mod, pre, n, cl,
-          attr, pf, inDimension, dims, idxs, inst_dims, impl, comment, info,
-          graph, csets);
+          attr, pf, inDimension, dims, idxs, inst_dims, impl, comment, info);
 
-    case (cache, env, ih, store, ci_state, mod, pre, n, (cl, attr), pf, i, DAE.DIM_BOOLEAN(), dims, idxs, inst_dims, impl, comment, _, graph, csets)
+    case (cache, env, ih, store, ci_state, mod, pre, n, (cl, attr), pf, i, DAE.DIM_BOOLEAN(), dims, idxs, inst_dims, impl, comment, _)
       equation
         mod_1 = Mod.lookupIdxModification(mod, DAE.BCONST(false));
         mod_2 = Mod.lookupIdxModification(mod, DAE.BCONST(true));
-        (cache, env_1, ih, store, dae1, csets, ty, graph) =
-          instVar2(cache, env, ih, store, ci_state, mod_1, pre, n, cl, attr, pf, dims, (DAE.INDEX(DAE.BCONST(false)) :: idxs), inst_dims, impl, comment, info, graph, csets);
-        (cache, _, ih, store, dae2, csets, ty, graph) =
-          instVar2(cache, env, ih, store, ci_state, mod_2, pre, n, cl, attr, pf, dims, (DAE.INDEX(DAE.BCONST(true))  :: idxs), inst_dims, impl, comment, info, graph, csets);
+        (cache, env_1, ih, store, dae1, ty) =
+          instVar2(cache, env, ih, store, ci_state, mod_1, pre, n, cl, attr, pf, dims, (DAE.INDEX(DAE.BCONST(false)) :: idxs), inst_dims, impl, comment, info);
+        (cache, _, ih, store, dae2, ty) =
+          instVar2(cache, env, ih, store, ci_state, mod_2, pre, n, cl, attr, pf, dims, (DAE.INDEX(DAE.BCONST(true))  :: idxs), inst_dims, impl, comment, info);
         daeLst = DAEUtil.joinDaes(dae1, dae2);
       then
-        (cache, env_1, ih, store, daeLst, csets, ty, graph);
+        (cache, env_1, ih, store, daeLst, ty);
 
-    case (_,_,_,_,ci_state,mod,pre,n,(_,_),_,i,_,_,idxs,_,_,_,_,_,_)
+    case (_,_,_,_,ci_state,mod,pre,n,(_,_),_,i,_,_,idxs,_,_,_,_)
       equation
         failure(_ = Mod.lookupIdxModification(mod, DAE.ICONST(i)));
         str1 = PrefixUtil.printPrefixStrIgnoreNoPre(PrefixUtil.prefixAdd(n, {}, {}, pre, SCode.VAR(), ci_state, info));
@@ -1680,16 +1649,12 @@ Special case for DIM_INTEGER: tail-recursive implementation since the number of 
   input Boolean inImpl;
   input SCode.Comment inComment;
   input SourceInfo inInfo;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input Connect.Sets inSets;
   output FCore.Cache outCache = inCache;
   output FCore.Graph outEnv = inEnv;
   output InnerOuter.InstHierarchy outIH = inIH;
   output UnitAbsyn.InstStore outStore = inStore;
   output DAE.DAElist outDae = DAE.emptyDae;
-  output Connect.Sets outSets = inSets;
   output DAE.Type outType = DAE.T_UNKNOWN_DEFAULT;
-  output ConnectionGraph.ConnectionGraph outGraph = inGraph;
 protected
   SCode.Element c, cls;
   DAE.Mod mod, imod;
@@ -1730,10 +1695,10 @@ algorithm
     imod := Mod.lookupIdxModification(mod, e);
     s := DAE.INDEX(e);
 
-    (outCache, outEnv, outIH, outStore, dae, outSets, outType, outGraph) :=
+    (outCache, outEnv, outIH, outStore, dae, outType) :=
       instVar2(outCache, inEnv, outIH, outStore, inState, imod, inPrefix,
         inName, cls, attr, inPrefixes, inRestDimensions, s :: inSubscripts,
-        inst_dims, inImpl, inComment, inInfo, outGraph, outSets);
+        inst_dims, inImpl, inComment, inInfo);
     outDae := DAEUtil.joinDaes(dae, outDae);
   end for;
 end instArrayDimInteger;
@@ -1757,16 +1722,12 @@ protected function instArrayDimEnum
   input Boolean inImpl;
   input SCode.Comment inComment;
   input SourceInfo inInfo;
-  input ConnectionGraph.ConnectionGraph inGraph;
-  input Connect.Sets inSets;
   output FCore.Cache outCache = inCache;
   output FCore.Graph outEnv = inEnv;
   output InnerOuter.InstHierarchy outIH = inIH;
   output UnitAbsyn.InstStore outStore = inStore;
   output DAE.DAElist outDae = DAE.emptyDae;
-  output Connect.Sets outSets = inSets;
   output DAE.Type outType = DAE.T_UNKNOWN_DEFAULT;
-  output ConnectionGraph.ConnectionGraph outGraph = inGraph;
 protected
   Absyn.Path enum_path, enum_lit_path;
   list<String> literals;
@@ -1783,11 +1744,10 @@ algorithm
     mod := Mod.lookupIdxModification(inMod, e);
     i := i + 1;
 
-    (outCache, outEnv, outIH, outStore, dae, outSets, outType, outGraph) :=
+    (outCache, outEnv, outIH, outStore, dae, outType) :=
       instVar2(outCache, inEnv, outIH, outStore, inState, mod, inPrefix,
         inName, inClass, inAttributes, inPrefixes, inRestDimensions,
-        DAE.INDEX(e) :: inSubscripts, inInstDims, inImpl, inComment, inInfo,
-        outGraph, outSets);
+        DAE.INDEX(e) :: inSubscripts, inInstDims, inImpl, inComment, inInfo);
 
     outDae := DAEUtil.joinDaes(outDae, dae);
   end for;

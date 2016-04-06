@@ -41,8 +41,6 @@ encapsulated package InstFunction
 
 public import Absyn;
 public import ClassInf;
-public import Connect;
-public import ConnectionGraph;
 public import DAE;
 public import FCore;
 public import InnerOuter;
@@ -352,9 +350,9 @@ algorithm
         c = if Config.acceptMetaModelicaGrammar() then inClass else SCode.setClassPartialPrefix(SCode.NOT_PARTIAL(), inClass);
         cs = if instFunctionTypeOnly then InstTypes.TYPE_CALL() else InstTypes.INNER_CALL();
         //print("1 Prefix: " + PrefixUtil.printPrefixStr(pre) + " path: " + n + "\n");
-        (cache,cenv,ih,_,DAE.DAE(daeElts),_,ty,_,_,_) =
+        (cache,cenv,ih,_,DAE.DAE(daeElts),ty,_,_) =
           Inst.instClass(cache, env, ih, UnitAbsynBuilder.emptyInstStore(), mod, pre,
-            c, inst_dims, true, cs, ConnectionGraph.EMPTY, Connect.emptySet);
+            c, inst_dims, true, cs);
         List.map2_0(daeElts,InstUtil.checkFunctionElement,false,info);
         // do not add the stripped class to the env, is already there, not stripped!
         env_1 = env; // Env.extendFrameC(env,c);
@@ -387,9 +385,9 @@ algorithm
     case (cache,env,ih,mod,pre,(c as SCode.CLASS(partialPrefix=partialPrefix, prefixes=SCode.PREFIXES(visibility=visibility), name = n,restriction = (restr as SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(isImpure))),
         classDef = cd as (parts as SCode.PARTS()), cmt=cmt, info=info, encapsulatedPrefix = encapsulatedPrefix)),inst_dims,_)
       equation
-        (cache,cenv,ih,_,DAE.DAE(daeElts),_,ty,_,_,_) =
+        (cache,cenv,ih,_,DAE.DAE(daeElts),ty,_,_) =
           Inst.instClass(cache,env,ih, UnitAbsynBuilder.emptyInstStore(),mod, pre,
-            c, inst_dims, true, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY, Connect.emptySet);
+            c, inst_dims, true, InstTypes.INNER_CALL());
         List.map2_0(daeElts,InstUtil.checkFunctionElement,true,info);
         //env_11 = FGraph.mkClassNode(cenv,pre,mod,c);
         // Only created to be able to get FQ path.
@@ -405,11 +403,11 @@ algorithm
         (ty1,_) = Types.traverseType(ty1, -1, Types.makeExpDimensionsUnknown);
         env_1 = FGraph.mkTypeNode(cenv, n, ty1);
         vis = SCode.PUBLIC();
-        (cache,tempenv,ih,_,_,_,_,_,_,_,_,_) =
+        (cache,tempenv,ih,_,_,_,_,_,_,_) =
           Inst.instClassdef(cache, env_1, ih, UnitAbsyn.noStore, mod, pre,
             ClassInf.FUNCTION(fpath,isImpure), n,parts, restr, vis, partialPrefix,
             encapsulatedPrefix, inst_dims, true, InstTypes.INNER_CALL(),
-            ConnectionGraph.EMPTY, Connect.emptySet, NONE(), cmt, info) "how to get this? impl" ;
+            NONE(), cmt, info) "how to get this? impl" ;
         (cache,ih,extdecl) = instExtDecl(cache, tempenv,ih, n, parts, true, pre,info) "impl" ;
 
         // set the source of this element
@@ -588,9 +586,9 @@ algorithm
         (cache,(c as SCode.CLASS()),cenv) = Lookup.lookupClass(cache, env, cn); // Makes MultiBody gravityacceleration hacks shit itself
         (cache,mod2) = Mod.elabMod(cache, env, ih, Prefix.NOPRE(), mod1, false, Mod.DERIVED(cn), info);
 
-        (cache,_,ih,_,_,_,ty,_,_,_) =
+        (cache,_,ih,_,_,ty,_,_) =
           Inst.instClass(cache,cenv,ih,UnitAbsynBuilder.emptyInstStore(), mod2,
-            Prefix.NOPRE(), c, {}, true, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY, Connect.emptySet);
+            Prefix.NOPRE(), c, {}, true, InstTypes.INNER_CALL());
 
         env_1 = env; // why would you want to do this: FGraph.mkClassNode(env,c); ?????
         (cache,fpath) = Inst.makeFullyQualifiedIdent(cache,env_1,id);
@@ -777,9 +775,9 @@ algorithm
           newName = FGraph.getInstanceOriginalName(recordEnv, name);
           recordCl = SCode.setClassName(newName, recordCl);
 
-          (cache,_,_,_,_,_,recType,_,_,_) = Inst.instClass(inCache,recordEnv, InnerOuter.emptyInstHierarchy,
+          (cache,_,_,_,_,recType,_,_) = Inst.instClass(inCache,recordEnv, InnerOuter.emptyInstHierarchy,
             UnitAbsynBuilder.emptyInstStore(), DAE.NOMOD(), Prefix.NOPRE(), recordCl,
-            {}, true, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY, Connect.emptySet);
+            {}, true, InstTypes.INNER_CALL());
 
           DAE.T_COMPLEX(ClassInf.RECORD(path), vars, eqCo, src) = recType;
 

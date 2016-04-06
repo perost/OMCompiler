@@ -54,43 +54,44 @@ import HashTable;
 import HashTable5;
 
 protected
-import DoubleEndedList;
-import List;
+import BaseHashSet;
 import BaseHashTable;
-import Expression;
-import Error;
-import Util;
-import ComponentReference;
-import Patternm;
-import DAEUtil;
-import DAEDump;
-import Types;
-import Debug;
-import PrefixUtil;
-import ElementSource;
-import ExpressionDump;
-import Flags;
-import FGraph;
-import FNode;
-import SCodeDump;
-import Lookup;
-import ValuesUtil;
-import Static;
 import Ceval;
-import Dump;
+import ComponentReference;
 import Config;
+import ConnectUtil;
+import DAEDump;
+import DAEUtil;
+import Debug;
+import DoubleEndedList;
+import Dump;
+import ElementSource;
+import Error;
+import ErrorExt;
+import Expression;
+import ExpressionDump;
+import FGraph;
+import Flags;
+import FNode;
+import Graph;
+import HashSet;
 import Inst;
+import InstExtends;
 import InstFunction;
 import InstSection;
+import List;
+import Lookup;
+import NFSCodeFlatten;
+import Patternm;
+import PrefixUtil;
+import SCodeDump;
+import Static;
 import System;
-import ErrorExt;
-import InstExtends;
-import Graph;
+import Types;
 import UnitAbsynBuilder;
 import UnitChecker;
-import NFSCodeFlatten;
-import HashSet;
-import BaseHashSet;
+import Util;
+import ValuesUtil;
 import MetaModelica.Dangerous.listReverseInPlace;
 
 protected type Ident = DAE.Ident "an identifier";
@@ -2373,6 +2374,7 @@ public function addComponentsToEnv
   input ClassInf.State state;
   input list<tuple<SCode.Element, DAE.Mod>> components;
   input Boolean impl;
+  input SourceInfo info;
 protected
   SCode.Element comp, comp2;
   DAE.Mod cmod, local_mod, comp_mod, mod2;
@@ -2382,7 +2384,10 @@ protected
   DAE.Attributes dattr;
   Boolean error = false;
   String err_msg;
+  Option<DAE.ComponentRef> flow_cr;
 algorithm
+  flow_cr := ConnectUtil.checkStreamConnector(state, components, info);
+
   for compmod in components loop
     (comp, cmod) := compmod;
 
@@ -2418,7 +2423,7 @@ algorithm
           comp_mod := Mod.lookupCompModification(mod, comp.name);
           cmod := Mod.merge(comp_mod, cmod);
 
-          dattr := DAEUtil.translateSCodeAttrToDAEAttr(attr, prefs);
+          dattr := DAEUtil.translateSCodeAttrToDAEAttr(attr, prefs, flow_cr);
           env := FGraph.mkComponentNode(env,
             DAE.TYPES_VAR(comp.name, dattr, DAE.T_UNKNOWN_DEFAULT, DAE.UNBOUND(), NONE()),
             comp, cmod, FCore.VAR_UNTYPED(), FGraph.empty());
@@ -3638,17 +3643,13 @@ end instWholeDimFromMod;
 public function propagateAttributes
   "Propagates attributes (flow, stream, discrete, parameter, constant, input,
   output) to elements in a structured component."
-  input DAE.DAElist inDae;
-  input SCode.Attributes inAttributes;
-  input SCode.Prefixes inPrefixes;
-  input SourceInfo inInfo;
-  output DAE.DAElist outDae;
-protected
-  list<DAE.Element> elts;
+  input output DAE.DAElist dae;
+  input SCode.Attributes attributes;
+  input SCode.Prefixes prefixes;
+  input SourceInfo info;
 algorithm
-  DAE.DAE(elementLst = elts) := inDae;
-  elts := List.map3(elts, propagateAllAttributes, inAttributes, inPrefixes, inInfo);
-  outDae := DAE.DAE(elts);
+  dae.elementLst := list(propagateAllAttributes(e, attributes, prefixes, info)
+    for e in dae.elementLst);
 end propagateAttributes;
 
 protected function propagateAllAttributes
@@ -3909,15 +3910,15 @@ protected function propagateConnectorType
   output DAE.ConnectorType outVarConnectorType;
 algorithm
   outVarConnectorType :=
-  match(inVarConnectorType, inConnectorType, inCref, inInfo)
+  match(inVarConnectorType, inConnectorType)
     local
       String s1, s2, s3;
 
-    case (_, SCode.POTENTIAL(), _, _) then inVarConnectorType;
-    case (DAE.POTENTIAL(), SCode.FLOW(), _, _) then DAE.FLOW();
-    case (DAE.NON_CONNECTOR(), SCode.FLOW(), _, _) then DAE.FLOW();
-    case (DAE.POTENTIAL(), SCode.STREAM(), _, _) then DAE.STREAM();
-    case (DAE.NON_CONNECTOR(), SCode.STREAM(), _, _) then DAE.STREAM();
+    case (_, SCode.POTENTIAL()) then inVarConnectorType;
+    case (DAE.POTENTIAL(), SCode.FLOW()) then DAE.FLOW();
+    case (DAE.NON_CONNECTOR(), SCode.FLOW()) then DAE.FLOW();
+    case (DAE.POTENTIAL(), SCode.STREAM()) then DAE.STREAM(NONE());
+    case (DAE.NON_CONNECTOR(), SCode.STREAM()) then DAE.STREAM(NONE());
 
     // Error if the component tries to overwrite the prefix of a subcomponent.
     else
@@ -5808,8 +5809,7 @@ algorithm
 
     case (_,ci,_,SOME(tp),_)
       equation
-        true = Types.isArray(tp);
-        failure(ClassInf.isConnector(ci));
+        true = Types.isArray(tp) and not ClassInf.isConnector(ci);
       then
         tp;
 
@@ -6048,72 +6048,6 @@ algorithm
         (name, info);
   end match;
 end extractCurrentName;
-
-public function reorderConnectEquationsExpandable
-"@author: adrpo
-  Reorder the connect equations to have non-expandable connect first:
-    connect(non_expandable, non_expandable);
-    connect(non_expandable, expandable);
-    connect(expandable, non_expandable);
-    connect(expandable, expandable);"
-  input output FCore.Cache cache;
-  input FCore.Graph env;
-  input list<SCode.Equation> inEquations;
-  output list<SCode.Equation> outEquations;
-protected
-  DoubleEndedList<SCode.Equation> delst;
-  list<SCode.Equation> expandableEqs;
-  Absyn.ComponentRef crefLeft, crefRight;
-  DAE.Type ty1,ty2;
-algorithm
-  if if listEmpty(inEquations) then true else (not System.getHasExpandableConnectors()) then
-    outEquations := inEquations;
-    return;
-  end if;
-  ErrorExt.setCheckpoint("expandableConnectorsOrder");
-  delst := DoubleEndedList.fromList({});
-  expandableEqs := list(
-    eq
-    for eq
-    guard matchcontinue eq
-    case SCode.EQUATION(SCode.EQ_CONNECT(crefLeft=crefLeft, crefRight=crefRight))
-    algorithm
-      (_, ty1, _) := Lookup.lookupConnectorVar(env, ComponentReference.toExpCref(crefLeft));
-      // type of left var is an expandable connector!
-      true := Types.isExpandableConnector(ty1);
-      (_, ty2, _) := Lookup.lookupConnectorVar(env, ComponentReference.toExpCref(crefRight));
-      // type of right left var is an expandable connector!
-      true := Types.isExpandableConnector(ty2);
-    then true;
-    else algorithm DoubleEndedList.push_back(delst, eq); then false;
-    end matchcontinue in inEquations
-  );
-
-  if listEmpty(expandableEqs) then
-    ErrorExt.delCheckpoint("expandableConnectorsOrder");
-    outEquations := inEquations; // Just to preserve referenceEq; does not really matter
-    return;
-  end if;
-  ErrorExt.rollBack("expandableConnectorsOrder");
-
-  // Reorder the connect equations to have non-expandable connect first:
-  //   connect(non_expandable, non_expandable);
-  //   connect(non_expandable, expandable);
-  //   connect(expandable, non_expandable);
-  //   connect(expandable, expandable);
-
-  // put expandable at the begining
-  DoubleEndedList.push_list_front(delst, expandableEqs);
-  // put expandable at the end
-  DoubleEndedList.push_list_back(delst, expandableEqs);
-  // duplicate expandable to get the union
-  _ := match expandableEqs
-  case _::_::_ algorithm DoubleEndedList.push_list_back(delst, expandableEqs); then (); // > length 1
-  else ();
-  end match;
-
-  outEquations := DoubleEndedList.toListAndClear(delst);
-end reorderConnectEquationsExpandable;
 
 public function sortInnerFirstTplLstElementMod
 "@author: adrpo

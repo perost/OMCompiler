@@ -605,6 +605,7 @@ match lst
   case EQUEQUATION(__) then dumpEquEquation(cr1, cr2, source)
   case ARRAY_EQUATION(__) then dumpEquation(exp, array, source)
   case COMPLEX_EQUATION(__) then dumpEquation(lhs, rhs, source)
+  case CONNECT_EQUATION(__) then dumpConnectEquation(lhsElement, rhsElement, source)
   case DEFINE(__) then dumpDefine(componentRef, exp, source)
   case WHEN_EQUATION(__) then dumpWhenEquation(lst)
   case IF_EQUATION(__) then dumpIfEquation(condition1, equations2, equations3, source)
@@ -639,6 +640,16 @@ template dumpEquEquation(DAE.ComponentRef lhs, DAE.ComponentRef rhs, DAE.Element
   <%lhs_str%> = <%rhs_str%><%src_str%>;
   >>
 end dumpEquEquation;
+
+template dumpConnectEquation(DAE.Element lhs, DAE.Element rhs, DAE.ElementSource src)
+::=
+  let lhs_str = match lhs case DAE.VAR() then dumpCref(componentRef) else "ERROR"
+  let rhs_str = match rhs case DAE.VAR() then dumpCref(componentRef) else "ERROR"
+  let src_str = dumpSource(src)
+  <<
+  connect(<%lhs_str%>, <%rhs_str%>)<%src_str%>;
+  >>
+end dumpConnectEquation;
 
 template dumpDefine(DAE.ComponentRef lhs, DAE.Exp rhs, DAE.ElementSource src)
 ::=

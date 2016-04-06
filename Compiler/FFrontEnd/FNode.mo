@@ -47,6 +47,7 @@ import FCore;
 
 // protected imports
 protected
+import DAEUtil;
 import Error;
 import List;
 import FGraph;
@@ -591,6 +592,7 @@ algorithm
       Option<Absyn.Exp> condition;
       Data nd;
       DAE.Var i;
+      DAE.ConnectorType dct;
 
     // a component
     case (SCode.COMPONENT(n,SCode.PREFIXES(vis,_,_,io,_),
@@ -598,9 +600,10 @@ algorithm
                                     _,_,_,_,_), _)
       equation
         nd = FCore.CO(inElement, DAE.NOMOD(), inKind, FCore.VAR_UNTYPED());
+        dct = DAEUtil.toConnectorTypeNoState(ct);
         i  = DAE.TYPES_VAR(
                   n,
-                  DAE.ATTR(ct,prl,var,dir,io,vis),
+                  DAE.ATTR(dct,prl,var,dir,io,vis),
                   DAE.T_UNKNOWN_DEFAULT,
                   DAE.UNBOUND(),NONE());
       then

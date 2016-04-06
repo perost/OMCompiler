@@ -57,8 +57,7 @@ protected import BaseHashTable;
 protected import Builtin;
 protected import ComponentReference;
 protected import Config;
-protected import Connect;
-protected import ConnectionGraph;
+protected import DAEUtil;
 protected import Debug;
 protected import Error;
 protected import Expression;
@@ -279,12 +278,11 @@ algorithm
         ci_state = ClassInf.start(r, FGraph.getGraphName(env_2));
         // fprintln(Flags.INST_TRACE, "LOOKUP TYPE ICD: " + FGraph.printGraphPathStr(env_1) + " path:" + Absyn.pathString(path));
         mod = Mod.getClassModifier(env_1, id);
-        (cache,env_3,_,_,_,_,_,types,_,_,_,_) =
+        (cache,env_3,_,_,_,_,types,_,_,_) =
         Inst.instClassIn(
-          cache,env_2,InnerOuter.emptyInstHierarchy,UnitAbsyn.noStore,
-          mod, Prefix.NOPRE(),
-          ci_state, c, SCode.PUBLIC(), {}, false, InstTypes.INNER_CALL(),
-          ConnectionGraph.EMPTY, Connect.emptySet, NONE());
+          cache, env_2, InnerOuter.emptyInstHierarchy, UnitAbsyn.noStore, mod,
+          Prefix.NOPRE(), ci_state, c, SCode.PUBLIC(), {}, false,
+          InstTypes.INNER_CALL(), NONE());
         // build names
         (_,names) = SCode.getClassComponents(c);
         Types.checkEnumDuplicateLiterals(names, c.info);
@@ -336,10 +334,10 @@ algorithm
       equation
         // fprintln(Flags.INST_TRACE, "LOOKUP TYPE ICD: " + FGraph.printGraphPathStr(env_1) + " path:" + Absyn.pathString(path));
         true = SCode.classIsExternalObject(c);
-        (cache,env_1,_,_,_,_,_,_,_,_) = Inst.instClass(
+        (cache,env_1,_,_,_,_,_,_) = Inst.instClass(
           cache,env_1,InnerOuter.emptyInstHierarchy, UnitAbsyn.noStore,
           DAE.NOMOD(), Prefix.NOPRE(), c,
-          {}, false, InstTypes.TOP_CALL(), ConnectionGraph.EMPTY, Connect.emptySet);
+          {}, false, InstTypes.TOP_CALL());
         SCode.CLASS(name=id) = c;
         (env_1, _) = FGraph.stripLastScopeRef(env_1);
         (cache,t,env_2) = lookupTypeInEnv(cache,env_1,id);
@@ -1617,11 +1615,10 @@ algorithm
                 ci_state = ClassInf.start(r, FGraph.getGraphName(env3));
                 // fprintln(Flags.INST_TRACE, "LOOKUP VAR IN PACKAGES ICD: " + FGraph.printGraphPathStr(env3) + " var: " + ComponentReference.printComponentRefStr(cref));
                 mod = Mod.getClassModifier(env2, n);
-                (cache,env5,_,_,_,_,_,_,_,_,_,_) =
+                (cache,env5,_,_,_,_,_,_,_,_) =
                   Inst.instClassIn(cache,env3,InnerOuter.emptyInstHierarchy,UnitAbsyn.noStore,
                     mod, Prefix.NOPRE(), ci_state, c, SCode.PUBLIC(), {},
-                    /*true*/false, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY,
-                    Connect.emptySet, NONE());
+                    /*true*/false, InstTypes.INNER_CALL(), NONE());
               end if;
             then ();
         end match;
@@ -2423,8 +2420,7 @@ algorithm
         algorithm
           (cache, env) := Inst.instClass(inCache, inEnv,
             InnerOuter.emptyInstHierarchy, UnitAbsyn.noStore, DAE.NOMOD(),
-            Prefix.NOPRE(), cl, {}, false, InstTypes.TOP_CALL(),
-            ConnectionGraph.EMPTY, Connect.emptySet);
+            Prefix.NOPRE(), cl, {}, false, InstTypes.TOP_CALL());
           (cache, ty) := lookupTypeInEnv(cache, env, inFuncName);
         then
           (cache, {ty});
@@ -2551,7 +2547,7 @@ algorithm
         //         Util.tuple21),
         //       SCodeDump.printElementStr), "\n"));
         (cache, env1, _) = InstUtil.addClassdefsToEnv(cache, env, InnerOuter.emptyInstHierarchy, Prefix.NOPRE(), cdefelts, false, NONE());
-        (cache, env1, _) = InstUtil.addComponentsToEnv(cache, env1, InnerOuter.emptyInstHierarchy, mods, Prefix.NOPRE(), ClassInf.RECORD(fpath), eltsMods, true);
+        (cache, env1, _) = InstUtil.addComponentsToEnv(cache, env1, InnerOuter.emptyInstHierarchy, mods, Prefix.NOPRE(), ClassInf.RECORD(fpath), eltsMods, true, info);
         (cache, env1, funcelts) = buildRecordConstructorElts(cache,env1,eltsMods,mods);
       then (cache,env1,funcelts,elts);
 
@@ -3524,11 +3520,11 @@ algorithm
   // print("buildMetaRecordType " + id + " in scope " + FGraph.printGraphPathStr(env) + "\n");
   (cache,utPath) := Inst.makeFullyQualified(inCache,env,utPath);
   path := Absyn.joinPaths(utPath, Absyn.IDENT(id));
-  (outCache,outEnv,_,_,_,_,_,varlst,_,_) := Inst.instElementList(
+  (outCache,outEnv,_,_,_,_,varlst,_) := Inst.instElementList(
     cache,env,InnerOuter.emptyInstHierarchy, UnitAbsyn.noStore,
     DAE.NOMOD(),Prefix.NOPRE(),
     ClassInf.META_RECORD(Absyn.IDENT("")), List.map1(els,Util.makeTuple,DAE.NOMOD()),
-    {}, false, InstTypes.INNER_CALL(), ConnectionGraph.EMPTY, Connect.emptySet, true);
+    {}, false, InstTypes.INNER_CALL(), true);
   varlst := Types.boxVarLst(varlst);
   // for v in varlst loop print(Types.unparseType(v.ty)+"\n"); end for;
   ts := Types.mkTypeSource(SOME(path));

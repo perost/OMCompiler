@@ -545,61 +545,60 @@ public function valid "
   restriction using this function to find out if it is an error to
   use this class definition as a connector.
 "
-  input State inState;
-  input SCode.Restriction inRestriction;
+  input State state;
+  input SCode.Restriction restriction;
+  output Boolean isValid;
 algorithm
-  _ := match (inState,inRestriction)
-    local Absyn.Path p;
+  isValid := match (state, restriction)
+    case (UNKNOWN(), _) then true;
 
-    case (UNKNOWN(),_) then ();
+    case (HAS_RESTRICTIONS(), SCode.R_CLASS()) then true;
+    case (HAS_RESTRICTIONS(), SCode.R_MODEL()) then true;
+    case (HAS_RESTRICTIONS(), SCode.R_OPTIMIZATION()) then true;
+    case (MODEL(), SCode.R_MODEL()) then true;
 
-    case (HAS_RESTRICTIONS(),SCode.R_CLASS()) then ();
-    case (HAS_RESTRICTIONS(),SCode.R_MODEL()) then ();
-    case (HAS_RESTRICTIONS(),SCode.R_OPTIMIZATION()) then ();
-    case (MODEL(),SCode.R_MODEL()) then ();
+    case (RECORD(), SCode.R_RECORD()) then true;
+    case (RECORD(), SCode.R_CONNECTOR()) then true;
+    case (HAS_RESTRICTIONS(hasEquations = false, hasConstraints = false, hasAlgorithms = false), SCode.R_RECORD()) then true;
+    case (HAS_RESTRICTIONS(hasEquations = false, hasConstraints = false, hasAlgorithms = false), SCode.R_CONNECTOR()) then true;
 
+    case (BLOCK(), SCode.R_BLOCK()) then true;
+    case (MODEL(), SCode.R_MODEL()) then true;
 
-    case (RECORD(),SCode.R_RECORD(_)) then ();
-    case (RECORD(),SCode.R_CONNECTOR(_)) then ();
-    case (HAS_RESTRICTIONS(hasEquations=false,hasConstraints=false,hasAlgorithms=false),SCode.R_RECORD(_)) then ();
+    case (CONNECTOR(), SCode.R_CONNECTOR())
+      then state.isExpandable == restriction.isExpandable;
 
-    case (BLOCK(),SCode.R_BLOCK()) then ();
-    case (MODEL(),SCode.R_MODEL()) then ();
-
-    case (CONNECTOR(isExpandable=false),SCode.R_CONNECTOR(false)) then ();
-    case (CONNECTOR(isExpandable=true),SCode.R_CONNECTOR(true)) then ();
-    case (HAS_RESTRICTIONS(hasEquations=false,hasConstraints=false,hasAlgorithms=false),SCode.R_CONNECTOR(_)) then ();
-    case (TYPE_INTEGER(),SCode.R_CONNECTOR(_)) then ();
-    case (TYPE_REAL(),SCode.R_CONNECTOR(_)) then ();
-    case (TYPE_STRING(),SCode.R_CONNECTOR(_)) then ();
-    case (TYPE_BOOL(),SCode.R_CONNECTOR(_)) then ();
+    case (TYPE_INTEGER(), SCode.R_CONNECTOR()) then true;
+    case (TYPE_REAL(), SCode.R_CONNECTOR()) then true;
+    case (TYPE_STRING(), SCode.R_CONNECTOR()) then true;
+    case (TYPE_BOOL(), SCode.R_CONNECTOR()) then true;
     // BTH
-    case (TYPE_CLOCK(),SCode.R_CONNECTOR(_)) then ();
-    case (TYPE_ENUM(),SCode.R_CONNECTOR(_)) then (); // used in Modelica.Electrical.Digital where we have an enum as a connector
-    case (ENUMERATION(),SCode.R_CONNECTOR(_)) then ();      // used in Modelica.Electrical.Digital where we have an enum as a connector
+    case (TYPE_CLOCK(), SCode.R_CONNECTOR()) then true;
+    case (TYPE_ENUM(), SCode.R_CONNECTOR()) then true; // used in Modelica.Electrical.Digital where we have an enum as a connector
+    case (ENUMERATION(), SCode.R_CONNECTOR()) then true;      // used in Modelica.Electrical.Digital where we have an enum as a connector
 
-    case (TYPE(),SCode.R_TYPE()) then ();
-    case (TYPE_INTEGER(),SCode.R_TYPE()) then ();
-    case (TYPE_REAL(),SCode.R_TYPE()) then ();
-    case (TYPE_STRING(),SCode.R_TYPE()) then ();
-    case (TYPE_BOOL(),SCode.R_TYPE()) then ();
+    case (TYPE(), SCode.R_TYPE()) then true;
+    case (TYPE_INTEGER(), SCode.R_TYPE()) then true;
+    case (TYPE_REAL(), SCode.R_TYPE()) then true;
+    case (TYPE_STRING(), SCode.R_TYPE()) then true;
+    case (TYPE_BOOL(), SCode.R_TYPE()) then true;
     // BTH
-    case (TYPE_CLOCK(),SCode.R_TYPE()) then ();
-    case (TYPE_ENUM(),SCode.R_TYPE()) then ();
-    case (ENUMERATION(),SCode.R_TYPE()) then ();
+    case (TYPE_CLOCK(), SCode.R_TYPE()) then true;
+    case (TYPE_ENUM(), SCode.R_TYPE()) then true;
+    case (ENUMERATION(), SCode.R_TYPE()) then true;
 
-    case (PACKAGE(),SCode.R_PACKAGE()) then ();
-    case (HAS_RESTRICTIONS(hasEquations=false,hasConstraints=false,hasAlgorithms=false),SCode.R_PACKAGE()) then ();
+    case (PACKAGE(), SCode.R_PACKAGE()) then true;
+    case (HAS_RESTRICTIONS(hasEquations = false, hasConstraints = false, hasAlgorithms = false), SCode.R_PACKAGE()) then true;
 
-    case (FUNCTION(),SCode.R_FUNCTION(_)) then ();
-    case (HAS_RESTRICTIONS(hasEquations=false,hasConstraints=false),SCode.R_FUNCTION(_)) then ();
-    case (META_TUPLE(),SCode.R_TYPE()) then ();
-    case (META_LIST(),SCode.R_TYPE()) then ();
-    case (META_OPTION(),SCode.R_TYPE()) then ();
-    case (META_RECORD(),SCode.R_TYPE()) then ();
-    case (META_ARRAY(),SCode.R_TYPE()) then ();
-    case (META_UNIONTYPE(),SCode.R_TYPE()) then ();
-
+    case (FUNCTION(), SCode.R_FUNCTION()) then true;
+    case (HAS_RESTRICTIONS(hasEquations = false, hasConstraints = false), SCode.R_FUNCTION()) then true;
+    case (META_TUPLE(), SCode.R_TYPE()) then true;
+    case (META_LIST(), SCode.R_TYPE()) then true;
+    case (META_OPTION(), SCode.R_TYPE()) then true;
+    case (META_RECORD(), SCode.R_TYPE()) then true;
+    case (META_ARRAY(), SCode.R_TYPE()) then true;
+    case (META_UNIONTYPE(), SCode.R_TYPE()) then true;
+    else false;
   end match;
 end valid;
 
@@ -714,14 +713,14 @@ algorithm
   end match;
 end isFunctionOrRecord;
 
-public function isConnector "
-  Fails for states that are not CONNECTOR.
-"
-  input State inState;
+public function isConnector
+  "Fails for states that are not CONNECTOR."
+  input State state;
+  output Boolean isConnector;
 algorithm
-  _:=
-  match (inState)
-    case CONNECTOR() then ();
+  isConnector := match state
+    case CONNECTOR() then true;
+    else false;
   end match;
 end isConnector;
 

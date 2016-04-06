@@ -125,7 +125,7 @@ algorithm
   isTopLevel := match (inVarDirection, inComponentRef)
     case (DAE.INPUT(), DAE.CREF_IDENT()) then true;
     case (DAE.INPUT(), _)
-      guard(ConnectUtil.faceEqual(ConnectUtil.componentFaceType(inComponentRef), Connect.OUTSIDE()))
+      guard(ConnectUtil.faceEqual(ConnectUtil.connectorFace(inComponentRef), Connect.OUTSIDE()))
       then topLevelConnectorType(inConnectorType);
     else false;
   end match;
@@ -142,7 +142,7 @@ algorithm
   isTopLevel := match (inVarDirection, inComponentRef)
     case (DAE.OUTPUT(), DAE.CREF_IDENT()) then true;
     case (DAE.OUTPUT(), _)
-      guard(ConnectUtil.faceEqual(ConnectUtil.componentFaceType(inComponentRef), Connect.OUTSIDE()))
+      guard(ConnectUtil.faceEqual(ConnectUtil.connectorFace(inComponentRef), Connect.OUTSIDE()))
       then topLevelConnectorType(inConnectorType);
     else false;
   end match;
@@ -1597,17 +1597,25 @@ algorithm
 end getInputVars;
 
 public function isFlowVar
-  "Succeeds if the given variable has a flow prefix."
-  input DAE.Element inElement;
+  "Returns true if the given variable has a flow prefix, else false."
+  input DAE.Element element;
+  output Boolean isFlow;
 algorithm
-  DAE.VAR(kind = DAE.VARIABLE(), connectorType = DAE.FLOW()) := inElement;
+  isFlow := match element
+    case DAE.VAR(connectorType = DAE.FLOW()) then true;
+    else false;
+  end match;
 end isFlowVar;
 
 public function isStreamVar
-  "Succeeds if the given variable has a stream prefix."
-  input DAE.Element inElement;
+  "Returns true if the given variable has a stream prefix, else false."
+  input DAE.Element element;
+  output Boolean isStream;
 algorithm
-  DAE.VAR(kind = DAE.VARIABLE(), connectorType = DAE.STREAM()) := inElement;
+  isStream := match element
+    case DAE.VAR(connectorType = DAE.STREAM()) then true;
+    else false;
+  end match;
 end isStreamVar;
 
 public function isFlow
@@ -1986,11 +1994,23 @@ public function toConnectorType
 algorithm
   outConnectorType := match(inConnectorType, inState)
     case (SCode.FLOW(), _) then DAE.FLOW();
-    case (SCode.STREAM(), _) then DAE.STREAM();
+    case (SCode.STREAM(), _) then DAE.STREAM(NONE());
     case (_, ClassInf.CONNECTOR()) then DAE.POTENTIAL();
     else DAE.NON_CONNECTOR();
   end match;
 end toConnectorType;
+
+public function toConnectorTypeNoState
+  input SCode.ConnectorType scodeConnectorType;
+  input Option<DAE.ComponentRef> flowName = NONE();
+  output DAE.ConnectorType daeConnectorType;
+algorithm
+  daeConnectorType := match scodeConnectorType
+    case SCode.FLOW() then DAE.FLOW();
+    case SCode.STREAM() then DAE.STREAM(flowName);
+    else DAE.POTENTIAL();
+  end match;
+end toConnectorTypeNoState;
 
 public function toDaeParallelism "Converts scode parallelsim to dae parallelism.
   Prints a warning if parallel variables are used
@@ -3929,7 +3949,7 @@ algorithm
       DAE.ComponentRef cr1, cr2, new_cr1, new_cr2;
       list<DAE.Element> el, new_el;
       list<list<DAE.Element>> eqll, new_eqll;
-      DAE.Element e, new_e;
+      DAE.Element elem, new_elem, elem2, new_elem2;
       list<DAE.Statement> stmts, new_stmts;
       list<DAE.Exp> expl, new_expl;
       Option<DAE.Exp> binding, new_binding;
@@ -4088,6 +4108,15 @@ algorithm
       then
         ();
 
+    case DAE.CONNECT_EQUATION(lhsElement = elem, rhsElement = elem2)
+      algorithm
+        (new_elem, arg) := traverseDAEElement(elem, func, arg);
+        if not referenceEq(elem, new_elem) then element.lhsElement := new_elem; end if;
+        (new_elem2, arg) := traverseDAEElement(elem2, func, arg);
+        if not referenceEq(elem2, new_elem2) then element.rhsElement := new_elem2; end if;
+      then
+        ();
+
     case DAE.WHEN_EQUATION(condition = e1, equations = el)
       algorithm
         (new_e1, arg) := func(e1, arg);
@@ -4096,9 +4125,9 @@ algorithm
         if not referenceEq(el, new_el) then element.equations := new_el; end if;
 
         if isSome(element.elsewhen_) then
-          SOME(e) := element.elsewhen_;
-          (new_e, arg) := traverseDAEElement(e, func, arg);
-          if not referenceEq(e, new_e) then element.elsewhen_ := SOME(new_e); end if;
+          SOME(elem) := element.elsewhen_;
+          (new_elem, arg) := traverseDAEElement(elem, func, arg);
+          if not referenceEq(elem, new_elem) then element.elsewhen_ := SOME(new_elem); end if;
         end if;
       then
         ();
@@ -5055,6 +5084,8 @@ algorithm
         algorithm equations := e :: equations; then ();
       case DAE.COMPLEX_EQUATION()
         algorithm equations := e :: equations; then ();
+      case DAE.CONNECT_EQUATION()
+        algorithm equations := e :: equations; then ();
       case DAE.DEFINE()
         algorithm equations := e :: equations; then ();
       case DAE.ASSERT()
@@ -5615,9 +5646,11 @@ end getAttrInnerOuter;
 public function translateSCodeAttrToDAEAttr
   input SCode.Attributes inAttributes;
   input SCode.Prefixes inPrefixes;
+  input Option<DAE.ComponentRef> flowName;
   output DAE.Attributes outAttributes;
 protected
   SCode.ConnectorType ct;
+  DAE.ConnectorType dct;
   SCode.Parallelism prl;
   SCode.Variability var;
   Absyn.Direction dir;
@@ -5626,7 +5659,8 @@ protected
 algorithm
   SCode.ATTR(connectorType = ct, parallelism = prl, variability = var, direction = dir) := inAttributes;
   SCode.PREFIXES(innerOuter = io, visibility = vis) := inPrefixes;
-  outAttributes := DAE.ATTR(ct, prl, var, dir, io, vis);
+  dct := toConnectorTypeNoState(ct, flowName);
+  outAttributes := DAE.ATTR(dct, prl, var, dir, io, vis);
 end translateSCodeAttrToDAEAttr;
 
 public function varName
@@ -5761,7 +5795,7 @@ public function setAttributeDirection
   input DAE.Attributes inAttributes;
   output DAE.Attributes outAttributes;
 protected
-  SCode.ConnectorType ct;
+  DAE.ConnectorType ct;
   SCode.Parallelism p;
   SCode.Variability var;
   Absyn.InnerOuter io;

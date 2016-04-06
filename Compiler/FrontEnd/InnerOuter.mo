@@ -35,8 +35,6 @@ encapsulated package InnerOuter
 
 
 import Absyn;
-import Connect;
-import ConnectionGraph;
 import DAE;
 import FCore;
 import FNode;
@@ -47,7 +45,6 @@ import HashSet;
 
 protected import Array;
 protected import ComponentReference;
-protected import ConnectUtil;
 protected import DAEUtil;
 protected import Debug;
 protected import Dump;
@@ -76,9 +73,7 @@ uniontype InstResult
     FCore.Graph outEnv;
     UnitAbsyn.InstStore outStore;
     DAE.DAElist outDae;
-    Connect.Sets outSets;
     DAE.Type outType;
-    ConnectionGraph.ConnectionGraph outGraph;
   end INST_RESULT;
 end InstResult;
 
@@ -137,28 +132,24 @@ public function handleInnerOuterEquations
   input Absyn.InnerOuter io;
   input DAE.DAElist inDae;
   input InstHierarchy inIH;
-  input ConnectionGraph.ConnectionGraph inGraphNew;
-  input ConnectionGraph.ConnectionGraph inGraph;
   output DAE.DAElist odae;
   output InstHierarchy outIH;
-  output ConnectionGraph.ConnectionGraph outGraph;
 algorithm
-  (odae,outIH,outGraph) := matchcontinue(io,inDae,inIH,inGraphNew,inGraph)
+  (odae,outIH) := matchcontinue(io,inDae,inIH)
     local
       DAE.DAElist dae1,dae2,dae;
-      ConnectionGraph.ConnectionGraph graphNew,graph;
       InstHierarchy ih;
     // is an outer, remove equations
     // outer components do NOT change the connection graph!
-    case (Absyn.OUTER(),dae,ih,_,graph)
+    case (Absyn.OUTER(),dae,ih)
       equation
         (odae,_) = DAEUtil.splitDAEIntoVarsAndEquations(dae);
       then
-        (odae,ih,graph);
+        (odae,ih);
     // is both an inner and an outer,
     // rename inner vars in the equations to unique names
     // innerouter component change the connection graph
-    case (Absyn.INNER_OUTER(),dae,ih,_,graph)
+    case (Absyn.INNER_OUTER(),dae,ih)
       equation
         (dae1,dae2) = DAEUtil.splitDAEIntoVarsAndEquations(dae);
         // rename variables in the equations and algs.
@@ -169,11 +160,11 @@ algorithm
         // adrpo: TODO! FIXME: here we should do a difference of graphNew-graph
         //                     and rename the new equations added with unique vars.
       then
-        (dae,ih,graph);
+        (dae,ih);
     // is an inner do nothing
-    case (Absyn.INNER(),dae,ih,graphNew,_) then (dae,ih,graphNew);
+    case (Absyn.INNER(),dae,ih) then (dae,ih);
     // is not an inner nor an outer
-    case (Absyn.NOT_INNER_OUTER (),dae,ih,graphNew,_) then (dae,ih,graphNew);
+    case (Absyn.NOT_INNER_OUTER (),dae,ih) then (dae,ih);
     // something went totally wrong!
     else
       equation
@@ -181,54 +172,6 @@ algorithm
       then fail();
   end matchcontinue;
 end handleInnerOuterEquations;
-
-public function changeInnerOuterInOuterConnect
-  "changes inner to outer and outer to inner where needed"
-  input output Connect.Sets sets;
-algorithm
-  sets.outerConnects := List.map(sets.outerConnects, changeInnerOuterInOuterConnect2);
-end changeInnerOuterInOuterConnect;
-
-public function changeInnerOuterInOuterConnect2
-"@author: adrpo
-  changes inner to outer and outer to inner where needed"
-  input Connect.OuterConnect inOC;
-  output Connect.OuterConnect outOC;
-algorithm
-  outOC := matchcontinue(inOC)
-    local
-      DAE.ComponentRef cr1,cr2,ncr1,ncr2;
-      Absyn.InnerOuter io1,io2;
-      Connect.Face f1,f2;
-      Prefix.Prefix scope;
-      DAE.ElementSource source "the origin of the element";
-
-    // the left hand side is an outer!
-    case Connect.OUTERCONNECT(scope,cr1,io1,f1,cr2,io2,f2,source)
-      equation
-        (_,true) = innerOuterBooleans(io1);
-        ncr1 = PrefixUtil.prefixToCref(scope);
-        // fprintln(Flags.IOS, "changeInnerOuterInOuterConnect: changing left: " +
-        //   ComponentReference.printComponentRefStr(cr1) + " to inner");
-        false = ComponentReference.crefFirstCrefLastCrefEqual(ncr1,cr1);
-      then
-        Connect.OUTERCONNECT(scope,cr1,Absyn.INNER(),f1,cr2,io2,f2,source);
-
-    // the right hand side is an outer!
-    case Connect.OUTERCONNECT(scope,cr1,io1,f1,cr2,io2,f2,source)
-      equation
-        (_,true) = innerOuterBooleans(io2);
-        ncr2 = PrefixUtil.prefixToCref(scope);
-        // fprintln(Flags.IOS, "changeInnerOuterInOuterConnect: changing right: " +
-        //   ComponentReference.printComponentRefStr(cr2) + " to inner");
-        false = ComponentReference.crefFirstCrefLastCrefEqual(ncr2,cr2);
-      then
-        Connect.OUTERCONNECT(scope,cr1,io1,f1,cr2,Absyn.INNER(),f2,source);
-
-    // none of left or right hand side are outer
-    else inOC;
-  end matchcontinue;
-end changeInnerOuterInOuterConnect2;
 
 protected function buildInnerOuterRepl
 "Builds replacement rules for changing outer references
@@ -388,32 +331,6 @@ algorithm
   end matchcontinue;
 end renameUniqueVarsInTopScope;
 
-public function retrieveOuterConnections
-"Moves outerConnections to connection sets
- author PA:
- This function moves the connections put in outerConnects to the connection
- set, if a corresponding innner component can be found in the environment.
- If not, they are kept in the outerConnects for use higher up in the instance
- hierarchy."
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InstHierarchy inIH;
-  input Prefix.Prefix inPrefix;
-  input Connect.Sets inSets;
-  input Boolean inTopCall;
-  input ConnectionGraph.ConnectionGraph inCGraph;
-  output Connect.Sets outSets;
-  output list<Connect.OuterConnect> outInnerOuterConnects;
-  output ConnectionGraph.ConnectionGraph outCGraph;
-protected
-  list<Connect.OuterConnect> oc;
-algorithm
-  Connect.SETS(outerConnects = oc) := inSets;
-  (oc, outSets, outInnerOuterConnects, outCGraph) :=
-    retrieveOuterConnections2(inCache, inEnv, inIH, inPrefix, oc, inSets, inTopCall, inCGraph);
-  outSets.outerConnects := oc;
-end retrieveOuterConnections;
-
 protected function removeInnerPrefixFromCref
 "@author: adrpo
  This function will strip the given prefix from the component references."
@@ -449,97 +366,6 @@ algorithm
   end matchcontinue;
 end removeInnerPrefixFromCref;
 
-protected function retrieveOuterConnections2
-"help function to retrieveOuterConnections"
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InstHierarchy inIH;
-  input Prefix.Prefix inPrefix;
-  input list<Connect.OuterConnect> inOuterConnects;
-  input Connect.Sets inSets;
-  input Boolean inTopCall;
-  input ConnectionGraph.ConnectionGraph inCGraph;
-  output list<Connect.OuterConnect> outOuterConnects;
-  output Connect.Sets outSets;
-  output list<Connect.OuterConnect> outInnerOuterConnects;
-  output ConnectionGraph.ConnectionGraph outCGraph;
-algorithm
-  (outOuterConnects, outSets, outInnerOuterConnects, outCGraph) :=
-  matchcontinue(inCache, inEnv, inIH, inPrefix, inOuterConnects, inSets, inTopCall, inCGraph)
-    local
-      DAE.ComponentRef cr1, cr2;
-      Absyn.InnerOuter io1, io2;
-      Connect.Face f1, f2;
-      Connect.OuterConnect oc;
-      list<Connect.OuterConnect> rest_oc, ioc;
-      Boolean inner1, inner2, outer1, outer2, added;
-      Prefix.Prefix scope;
-      DAE.ElementSource source "the origin of the element";
-      SourceInfo info;
-      Connect.Sets sets;
-      ConnectionGraph.ConnectionGraph graph;
-
-    // handle empty
-    case (_, _, _, _, {}, _, _, _) then (inOuterConnects, inSets, {}, inCGraph);
-
-    // an inner only outer connect
-    case(_, _, _, _, Connect.OUTERCONNECT(scope, cr1, io1, f1, cr2, io2, f2,
-        source as DAE.SOURCE(info = info)) :: rest_oc, sets, _, graph)
-      equation
-        (inner1, outer1) = lookupVarInnerOuterAttr(inCache, inEnv, inIH, cr1, cr2);
-
-        true = inner1;
-        false = outer1;
-
-        // remove the prefixes so we can find it in the DAE
-        cr1 = removeInnerPrefixFromCref(inPrefix, cr1);
-        cr2 = removeInnerPrefixFromCref(inPrefix, cr2);
-
-        (sets, added) = ConnectUtil.addOuterConnectToSets(cr1, cr2, io1, io2, f1, f2, sets, info);
-
-        // if no connection set available (added = false), create new one
-        (sets, graph) = addOuterConnectIfEmpty(inCache, inEnv, inIH, inPrefix, sets,
-          added, cr1, io1, f1, cr2, io2, f2, info, graph);
-
-        (rest_oc, sets, ioc, graph) =
-          retrieveOuterConnections2(inCache, inEnv, inIH, inPrefix, rest_oc, sets, inTopCall, graph);
-
-        // if is also outer, then keep it also in the outer connects
-        rest_oc = if outer1 then Connect.OUTERCONNECT(scope, cr1, io1, f1, cr2, io2, f2, source) :: rest_oc else rest_oc;
-      then
-        (rest_oc, sets, ioc, graph);
-
-    // this case is for innerouter declarations, since we do not have them in environment we need to treat them in a special way
-    case(_, _, _, _, Connect.OUTERCONNECT(_, cr1, io1, f1, cr2, io2, f2,
-        DAE.SOURCE(info = info)) :: rest_oc, sets, true, graph)
-      equation
-        (inner1, outer1) = innerOuterBooleans(io1);
-        (inner2, outer2) = innerOuterBooleans(io2);
-        true = boolOr(inner1, inner2); // for inner outer we set Absyn.INNER()
-        false = boolOr(outer1, outer2);
-
-        io1 = convertInnerOuterInnerToOuter(io1); // we need to change from inner to outer to be able to join sets in: addOuterConnectToSets
-        io2 = convertInnerOuterInnerToOuter(io2);
-
-        (sets, added) = ConnectUtil.addOuterConnectToSets(cr1, cr2, io1, io2, f1, f2, sets, info);
-        // If no connection set available (added = false), create new one
-        (sets, graph) = addOuterConnectIfEmpty(inCache, inEnv, inIH, inPrefix, sets,
-          added, cr1, io1, f1, cr2, io2, f2, info, graph);
-        (rest_oc, sets, ioc, graph) =
-          retrieveOuterConnections2(inCache, inEnv, inIH, inPrefix, rest_oc, sets, true, graph);
-      then
-        (rest_oc, sets, ioc, graph);
-
-    // just keep the outer connects the same if we don't find them in the same scope
-    case(_, _, _, _, oc :: rest_oc, sets, _, graph)
-      equation
-        (rest_oc, sets, ioc, graph) =
-          retrieveOuterConnections2(inCache, inEnv, inIH, inPrefix, rest_oc, sets, inTopCall, graph);
-      then
-        (oc :: rest_oc, sets, ioc, graph);
-  end matchcontinue;
-end retrieveOuterConnections2;
-
 protected function convertInnerOuterInnerToOuter
 "Author: BZ, 2008-12
  Change from Absyn.INNER => Absyn.OUTER,
@@ -553,167 +379,6 @@ algorithm
     else io;
   end match;
 end convertInnerOuterInnerToOuter;
-
-protected function addOuterConnectIfEmpty
-"help function to retrieveOuterConnections2
- author PA.
- Adds a new connectionset if inner component
- found but no connection set refering to the
- inner component. In that is case the outer
- connection (from inside sub-components) forms
- a connection set of their own."
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InstHierarchy inIH;
-  input Prefix.Prefix pre;
-  input Connect.Sets inSets;
-  input Boolean added "if true, this function does nothing";
-  input DAE.ComponentRef cr1;
-  input Absyn.InnerOuter iio1;
-  input Connect.Face f1;
-  input DAE.ComponentRef cr2;
-  input Absyn.InnerOuter iio2;
-  input Connect.Face f2;
-  input SourceInfo info;
-  input ConnectionGraph.ConnectionGraph inCGraph;
-  output Connect.Sets outSets;
-  output ConnectionGraph.ConnectionGraph outCGraph;
-algorithm
-  (outSets, outCGraph) := match(inCache,inEnv,inIH,pre,inSets,added,cr1,iio1,f1,cr2,iio2,f2,info,inCGraph)
-     local
-       SCode.Variability vt1,vt2;
-       DAE.Type t1,t2;
-       SCode.ConnectorType ct;
-       DAE.DAElist dae;
-       InstHierarchy ih;
-       Connect.SetTrie sets;
-       Integer sc;
-       list<Connect.SetConnection> cl;
-       list<Connect.OuterConnect> oc;
-       FCore.Cache cache;
-       FCore.Graph env;
-       Absyn.InnerOuter io1,io2;
-       ConnectionGraph.ConnectionGraph graph;
-
-    // if it was added, return the same
-    case(_,_,_,_,_,true,_,_,_,_,_,_,_,_)
-      then (inSets, inCGraph);
-
-    // if it was not added, add it (search for both components)
-    case(cache,env,ih,_, Connect.SETS(sets, sc, cl, oc),false,_,io1,_,_,io2,_,_, graph)
-      equation
-        (cache,DAE.ATTR(connectorType = ct, variability = vt1),t1,_,_,_,_,_,_) = Lookup.lookupVar(cache,env,cr1);
-        (cache,DAE.ATTR(variability = vt2),t2,_,_,_,_,_,_) = Lookup.lookupVar(cache,env,cr2);
-        io1 = removeOuter(io1);
-        io2 = removeOuter(io2);
-        (cache,env,ih, Connect.SETS(sets = sets, setCount = sc, connections = cl),_, graph) =
-          InstSection.connectComponents(
-            cache,env,ih,
-            Connect.SETS(sets, sc, cl, {}),
-            pre,cr1,f1,t1,vt1,cr2,f2,t2,vt2,ct,io1,io2,
-            graph,info);
-        // TODO: take care of dae, can contain asserts from connections
-      then
-        (Connect.SETS(sets, sc, cl, oc), graph);
-
-    // This can fail, for innerouter, the inner part is not declared in env so instead the call to addOuterConnectIfEmptyNoEnv will succed.
-    else
-      equation
-        //print("Failed lookup: " + ComponentReference.printComponentRefStr(cr1) + "\n");
-        //print("Failed lookup: " + ComponentReference.printComponentRefStr(cr2) + "\n");
-        // print("#FAILURE# in: addOuterConnectIfEmpty:__ " + ComponentReference.printComponentRefStr(cr1) + " " + ComponentReference.printComponentRefStr(cr2) + "\n");
-      then fail();
-
-  end match;
-end addOuterConnectIfEmpty;
-
-protected function addOuterConnectIfEmptyNoEnv
-"help function to retrieveOuterConnections2
- author BZ.
- Adds a new connectionset if inner component found but
- no connection set refering to the inner component.
- In that case the outer connection (from inside
- sub-components) forms a connection set of their own.
- 2008-12: This is an extension of addOuterConnectIfEmpty,
-          with the difference that we only need to find
-          one variable in the enviroment."
-  input FCore.Cache inCache;
-  input FCore.Graph inEnv;
-  input InstHierarchy inIH;
-  input Prefix.Prefix inPre;
-  input Connect.Sets inSets;
-  input Boolean added "if true, this function does nothing";
-  input DAE.ComponentRef cr1;
-  input Absyn.InnerOuter iio1;
-  input Connect.Face f1;
-  input DAE.ComponentRef cr2;
-  input Absyn.InnerOuter iio2;
-  input Connect.Face f2;
-  input SourceInfo info;
-  output Connect.Sets outSets;
-algorithm
-  outSets := matchcontinue(inCache,inEnv,inIH,inPre,inSets,added,cr1,iio1,f1,cr2,iio2,f2,info)
-     local
-       SCode.Variability vt1,vt2;
-       DAE.Type t1,t2;
-       SCode.ConnectorType ct;
-       DAE.DAElist dae;
-       InstHierarchy ih;
-       Connect.SetTrie sets;
-       Integer sc;
-       list<Connect.SetConnection> cl;
-       list<Connect.OuterConnect> oc;
-       FCore.Cache cache;
-       FCore.Graph env;
-       Absyn.InnerOuter io1,io2;
-       Prefix.Prefix pre;
-
-    // if it was added, return the same
-    case(_,_,_,_,_,true,_,_,_,_,_,_,_) then inSets;
-
-    // if it was not added, add it (first component found: cr1)
-    case(cache,env,ih,_, Connect.SETS(sets, sc, cl, oc),false,_,io1,_,_,io2,_,_)
-      equation
-        (cache,DAE.ATTR(connectorType = ct,variability=vt1),t1,_,_,_,_,_,_) = Lookup.lookupVar(cache,env,cr1);
-        pre = Prefix.NOPRE();
-        t2 = t1;
-        vt2 = vt1;
-        io1 = removeOuter(io1);
-        io2 = removeOuter(io2);
-        (cache,env,ih, Connect.SETS(sets = sets, setCount = sc, connections = cl),_,_) =
-        InstSection.connectComponents(
-          cache,env,ih,
-          Connect.SETS(sets, sc, cl, {}),
-          pre,cr1,f1,t1,vt1,cr2,f2,t2,vt2,ct,io1,io2,ConnectionGraph.EMPTY,info);
-        // TODO: take care of dae, can contain asserts from connections
-      then
-        Connect.SETS(sets, sc, cl, oc);
-
-    // if it was not added, add it (first component found: cr2)
-    case(cache,env,ih,_, Connect.SETS(sets, sc, cl, oc),false,_,io1,_,_,io2,_,_)
-      equation
-        pre = Prefix.NOPRE();
-        (cache,DAE.ATTR(connectorType = ct,variability=vt2),t2,_,_,_,_,_,_) = Lookup.lookupVar(cache,env,cr2);
-        t1 = t2;
-        vt1 = vt2;
-        io1 = removeOuter(io1);
-        io2 = removeOuter(io2);
-        (cache,env,ih, Connect.SETS(sets = sets, setCount = sc, connections = cl),_,_) =
-        InstSection.connectComponents(
-          cache,env,ih,
-          Connect.SETS(sets, sc, cl, {}),
-          pre,cr1,f1,t1,vt1,cr2,f2,t2,vt2,ct,
-          io1,io2,ConnectionGraph.EMPTY,info);
-        // TODO: take care of dae, can contain asserts from connections
-      then
-        Connect.SETS(sets, sc, cl, oc);
-
-    // fail
-    else
-      equation print("failure in: addOuterConnectIfEmptyNOENV\n");
-        then fail();
-  end matchcontinue;
-end addOuterConnectIfEmptyNoEnv;
 
 protected function removeOuter
 "Removes outer attribute, keeping inner"
@@ -1266,6 +931,7 @@ algorithm
       DAE.Binding binding;
 
       SCode.ConnectorType ct;
+      DAE.ConnectorType dct;
       SCode.Parallelism parallelism "parallelism";
       SCode.Variability variability "variability" ;
       Absyn.Direction direction "direction" ;
@@ -1278,7 +944,8 @@ algorithm
         r = FNode.childFromNode(node, FNode.itNodeName);
         FCore.IT(DAE.TYPES_VAR(name, attributes, ty, binding, cnstForRange)) = FNode.refData(r);
         DAE.ATTR(ct, parallelism, variability, direction, Absyn.INNER(), visibility) = attributes;
-        attributes = DAE.ATTR(ct, parallelism, variability, direction, Absyn.OUTER(), visibility);
+        dct = DAEUtil.toConnectorTypeNoState(ct);
+        attributes = DAE.ATTR(dct, parallelism, variability, direction, Absyn.OUTER(), visibility);
         // update the ref
         r = FNode.updateRef(r, FNode.setData(FNode.fromRef(r),FCore.IT(DAE.TYPES_VAR(name, attributes, ty, binding, cnstForRange))));
         // env = switchInnerToOuterInGraph(env, inCr);
@@ -1292,7 +959,8 @@ algorithm
         r = FNode.childFromNode(node, FNode.itNodeName);
         FCore.IT(DAE.TYPES_VAR(name, attributes, ty, binding, cnstForRange)) = FNode.refData(r);
         DAE.ATTR(ct, parallelism, variability, direction, Absyn.INNER_OUTER(), visibility) = attributes;
-        attributes = DAE.ATTR(ct, parallelism, variability, direction, Absyn.OUTER(), visibility);
+        dct = DAEUtil.toConnectorTypeNoState(ct);
+        attributes = DAE.ATTR(dct, parallelism, variability, direction, Absyn.OUTER(), visibility);
         // update the ref
         r = FNode.updateRef(r, FNode.setData(FNode.fromRef(r),FCore.IT(DAE.TYPES_VAR(name, attributes, ty, binding, cnstForRange))));
         // env = switchInnerToOuterInGraph(env, inCr);
@@ -1325,44 +993,19 @@ public function lookupInnerVar
 "@author: adrpo
  This function lookups the result of instatiation of the inner
  component given an instance hierarchy a prefix and a component name."
-  input Cache inCache;
-  input FCore.Graph inEnv;
-  input InstHierarchy inIH;
-  input Prefix.Prefix inPrefix;
-  input SCode.Ident inIdent;
-  input Absyn.InnerOuter io;
-  output InstInner outInstInner;
+  input InstHierarchy ih;
+  input Prefix.Prefix prefix;
+  input SCode.Ident ident;
+  output InstInner instInner;
 algorithm
-  (outInstInner) := matchcontinue (inCache,inEnv,inIH,inPrefix,inIdent,io)
-    local
-      Cache cache;
-      String n;
-      FCore.Graph env;
-      Prefix.Prefix pre;
-      TopInstance tih;
-      InstInner instInner;
-
-    // adrpo: if component is an outer or an inner/outer we need to
-    //        lookup the modification of the inner component and use it
-    //        when we instantiate the outer component
-    case (_,_,tih::_,pre,n,_)
-      equation
-        // is component an outer or an inner/outer?
-        //true = Absyn.isOuter(io);  // is outer
-        //false = Absyn.isInner(io); // and is not inner
-        // search the instance hierarchy for the inner component
-        instInner = lookupInnerInIH(tih, pre, n);
-      then
-        instInner;
-
-    // failure in case we look for anything else but outer!
-    case (_,_,_,pre,n,_)
-      equation
-        true = Flags.isSet(Flags.FAILTRACE);
-        Debug.traceln("InnerOuter.lookupInnerVar failed on component: " + PrefixUtil.printPrefixStr(pre) + "/" + n);
-      then
-        fail();
-  end matchcontinue;
+  try
+    instInner := lookupInnerInIH(listHead(ih), prefix, ident);
+  else
+    true := Flags.isSet(Flags.FAILTRACE);
+    Debug.traceln("InnerOuter.lookupInnerVar failed on component: " +
+      PrefixUtil.printPrefixStr(prefix) + "/" + ident);
+    fail();
+  end try;
 end lookupInnerVar;
 
 public function updateInstHierarchy

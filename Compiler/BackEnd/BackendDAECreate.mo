@@ -611,7 +611,7 @@ algorithm
       DAE.ConnectorType ct;
       DAE.ElementSource source;
       Option<DAE.VariableAttributes> dae_var_attr;
-    Option<BackendDAE.TearingSelect> ts;
+      Option<BackendDAE.TearingSelect> ts;
       Option<SCode.Comment> comment;
       DAE.Type t;
       DAE.VarVisibility protection;
@@ -665,7 +665,7 @@ algorithm
       DAE.ConnectorType ct;
       DAE.ElementSource source;
       Option<DAE.VariableAttributes> dae_var_attr;
-    Option<BackendDAE.TearingSelect> ts;
+      Option<BackendDAE.TearingSelect> ts;
       Option<SCode.Comment> comment;
       DAE.Type t;
       DAE.VarVisibility protection;
@@ -998,7 +998,7 @@ algorithm
       DAE.ConnectorType ct;
       DAE.ElementSource source;
       Option<DAE.VariableAttributes> dae_var_attr;
-    Option<BackendDAE.TearingSelect> ts;
+      Option<BackendDAE.TearingSelect> ts;
       Option<SCode.Comment> comment;
       DAE.Type t;
       Absyn.InnerOuter io;
