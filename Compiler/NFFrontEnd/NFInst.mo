@@ -441,7 +441,6 @@ algorithm
             //       to at least be cloned.
             ext_node := InstNode.updateClass(Class.NOT_INSTANTIATED(), ext_node);
             ext_node := InstNode.setNodeType(InstNodeType.BASE_CLASS(currentScope), ext_node);
-            ext_node := InstNode.rename(ext_node, className);
             ext_node := expand(ext_node);
           end if;
 
@@ -449,13 +448,8 @@ algorithm
 
           // Initialize the modifiers from the extends clause.
           mod_scope := ModifierScope.EXTENDS_SCOPE(e.baseClassPath);
-          // adrpo: TODO! FIXME! the modifier scope of the extends clause should be the currentScope not ext_node??!!
           mod := Modifier.create(e.modifications, "", mod_scope, currentScope);
-
-          // Apply the modifier from the extends clause to the expanded class.
-          ext_inst := InstNode.getClass(ext_node);
-          ext_inst := applyModifier(mod, ext_inst, mod_scope);
-          ext_node := InstNode.updateClass(ext_inst, ext_node);
+          ext_node := InstNode.classApply(ext_node, Class.mergeModifier, mod);
 
           ext_inst := InstNode.getClass(ext_node);
           builtin_ext := isBuiltinExtends(ext_inst);
@@ -692,7 +686,7 @@ algorithm
 
         // Apply the modifier to the class.
         mod := Modifier.merge(modifier, mod);
-        c := applyModifier(modifier, c,
+        c := applyModifier(mod, c,
           ModifierScope.CLASS_SCOPE(InstNode.name(node)));
 
         // Instantiate all the extends nodes first.
@@ -717,7 +711,7 @@ algorithm
     case Class.PARTIAL_BUILTIN()
       algorithm
         // Clone the node, since each component needs a unique type.
-        node := InstNode.clone(node);
+        //node := InstNode.clone(node);
         c := InstNode.getClass(node);
         Class.PARTIAL_BUILTIN(name = name, modifier = mod) := c;
 
@@ -783,6 +777,7 @@ algorithm
 
     case (Component.COMPONENT_DEF(), SCode.COMPONENT())
       algorithm
+        node := InstNode.clone(node);
         name := InstNode.name(node);
         node := InstNode.setOrphanParent(parent, node);
 

@@ -326,12 +326,44 @@ uniontype Class
 
       else
         algorithm
-          assert(false, getInstanceName() + " got unmodifiable instance");
+          assert(false, getInstanceName() + " got unmodifiable class");
         then
           fail();
 
     end match;
   end setModifier;
+
+  function mergeModifier
+    input Modifier modifier;
+    input output Class cls;
+  algorithm
+    () := match cls
+      case PARTIAL_CLASS()
+        algorithm
+          cls.modifier := Modifier.merge(modifier, cls.modifier);
+        then
+          ();
+
+      case EXPANDED_CLASS()
+        algorithm
+          cls.modifier := Modifier.merge(modifier, cls.modifier);
+        then
+          ();
+
+      case PARTIAL_BUILTIN()
+        algorithm
+          cls.modifier := Modifier.merge(modifier, cls.modifier);
+        then
+          ();
+
+      else
+        algorithm
+          assert(false, getInstanceName() + " got unmodifiable class");
+        then
+          fail();
+
+    end match;
+  end mergeModifier;
 
   function getModifier
     input Class cls;
